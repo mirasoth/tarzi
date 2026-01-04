@@ -1,6 +1,6 @@
 [project]
 name = "tarzi"
-version = "0.1.8"
+version = "0.1.8.1"
 requires-python = ">=3.10"
 keywords = ["web-scraping", "search-engine", "ai-tools", "rust", "browser-automation"]
 description = "Rust-native lite search for AI applications"
