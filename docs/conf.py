@@ -15,8 +15,8 @@ sys.path.insert(0, str(project_root))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "tarzi"
-copyright = "2025, Mirasurf"
-author = "xmingc"
+copyright = "2025-2026, Mirasoth Inc."
+author = "Mirasoth Team"
 release = "latest"
 
 # -- General configuration ---------------------------------------------------
@@ -70,7 +70,7 @@ html_theme_options = {
     "sidebar_hide_name": False,
     "light_logo": "tarzi-logo-light.png",
     "dark_logo": "tarzi-logo-dark.png",
-    "source_repository": "https://github.com/mirasurf/tarzi/",
+    "source_repository": "https://github.com/mirasoth/tarzi/",
     "source_branch": "main",
     "source_directory": "docs/",
 }

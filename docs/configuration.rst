@@ -16,7 +16,7 @@ tarzi reads configuration from the following sources in order of precedence (hig
 3. **tarzi.toml** (current project root)
 4. **Default values** (lowest priority)
 
-You can refer to `tarzi.toml <https://github.com/mirasurf/tarzi/blob/main/tarzi.toml>`_ for the default values.
+You can refer to `tarzi.toml <https://github.com/mirasoth/tarzi/blob/main/tarzi.toml>`_ for the default values.
 
 **Note**: The Python CLI is available as `pytarzi` command, while the Rust CLI remains as `tarzi` command.
 

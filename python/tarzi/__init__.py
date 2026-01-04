@@ -1,11 +1,5 @@
 # Re-export everything from the Rust module
-from .tarzi import (
-    Config,
-    Converter,
-    SearchEngine,
-    SearchResult,
-    WebFetcher,
-)
+from .tarzi import Config, Converter, SearchEngine, SearchResult, WebFetcher
 
 # Get version dynamically
 try:

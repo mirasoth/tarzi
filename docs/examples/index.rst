@@ -10,7 +10,7 @@ All examples are available in the `examples/` directory of the repository:
 
 .. code-block:: bash
 
-   git clone https://github.com/mirasurf/tarzi.git
+   git clone https://github.com/mirasoth/tarzi.git
    cd tarzi/examples
 
    # Python examples

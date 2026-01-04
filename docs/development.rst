@@ -40,7 +40,7 @@ Clone and Setup
 .. code-block:: bash
 
    # Clone the repository
-   git clone https://github.com/mirasurf/tarzi.git
+   git clone https://github.com/mirasoth/tarzi.git
    cd tarzi
    cd tarzi
 

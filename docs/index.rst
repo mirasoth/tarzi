@@ -16,8 +16,8 @@ tarzi - Rust-native lite search for AI applications
    :target: https://www.apache.org/licenses/LICENSE-2.0
    :alt: License
 
-.. image:: https://img.shields.io/github/actions/workflow/status/mirasurf/tarzi/rust-ci.yml?branch=main
-   :target: https://github.com/mirasurf/tarzi/actions
+.. image:: https://img.shields.io/github/actions/workflow/status/mirasoth/tarzi/rust-ci.yml?branch=main
+   :target: https://github.com/mirasoth/tarzi/actions
    :alt: Build Status
 
 **tarzi** is a powerful, Rust-native search library designed specifically for AI applications. 
@@ -195,15 +195,15 @@ Support
 =======
 
 - **Documentation**: https://tarzirs.readthedocs.io/
-- **Source Code**: https://github.com/mirasurf/tarzi
-- **Issues**: https://github.com/mirasurf/tarzi/issues
+- **Source Code**: https://github.com/mirasoth/tarzi
+- **Issues**: https://github.com/mirasoth/tarzi/issues
 - **PyPI**: https://pypi.org/project/tarzi/
 - **Crates.io**: https://crates.io/crates/tarzi
 
 License
 =======
 
-This project is licensed under the Apache License 2.0 - see the `LICENSE <https://github.com/mirasurf/tarzi/blob/main/LICENSE>`_ file for details.
+This project is licensed under the Apache License 2.0 - see the `LICENSE <https://github.com/mirasoth/tarzi/blob/main/LICENSE>`_ file for details.
 
 Indices and tables
 ==================

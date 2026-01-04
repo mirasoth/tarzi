@@ -1,11 +1,11 @@
 [package]
 name = "tarzi"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 authors = ["Xiaming Chen <chenxm35@gmail.com>"]
 description = "Rust-native lite search for AI applications"
 license = "Apache-2.0"
-repository = "https://github.com/mirasurf/tarzi"
+repository = "https://github.com/mirasoth/tarzi"
 keywords = ["search", "web-crawler", "AI", "RAG"]
 categories = ["web-programming", "api-bindings", "text-processing"]
 

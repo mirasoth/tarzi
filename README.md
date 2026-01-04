@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/mirasurf/tarzi/blob/4e751f8d389c0ac7f2061afa9286d2d7fa551aaf/static/tarzi-320.png" alt="Tarzi Logo" width="200" height="200">
+  <img src="https://github.com/mirasoth/tarzi/blob/4e751f8d389c0ac7f2061afa9286d2d7fa551aaf/static/tarzi-320.png" alt="Tarzi Logo" width="200" height="200">
 </div>
 <h1 align="center">tarzi</h1>  
 <p align="center">
@@ -10,11 +10,11 @@
     <img src="https://img.shields.io/pypi/v/tarzi.svg?style=flat-square" alt="PyPI Version" />
   </a>
   <!-- CI and Docs -->
-  <a href="https://github.com/mirasurf/tarzi/actions/workflows/rust-ci.yml">
-    <img src="https://github.com/mirasurf/tarzi/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
+  <a href="https://github.com/mirasoth/tarzi/actions/workflows/rust-ci.yml">
+    <img src="https://github.com/mirasoth/tarzi/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
   </a>
-  <a href="https://github.com/mirasurf/tarzi/actions/workflows/python-ci.yml">
-    <img src="https://github.com/mirasurf/tarzi/actions/workflows/python-ci.yml/badge.svg" alt="Python CI" />
+  <a href="https://github.com/mirasoth/tarzi/actions/workflows/python-ci.yml">
+    <img src="https://github.com/mirasoth/tarzi/actions/workflows/python-ci.yml/badge.svg" alt="Python CI" />
   </a>
   <a href="https://pypi.python.org/pypi/tarzi">
     <img src="https://img.shields.io/pypi/pyversions/tarzi.svg" alt="PyV" />
@@ -26,8 +26,8 @@
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square" alt="License" />
   </a>
   <!-- X (formerly Twitter) -->
-  <a href="https://x.com/mirasurf_ai">
-    <img src="https://img.shields.io/twitter/follow/mirasurf_ai?label=@mirasurf_ai&style=flat-square" alt="X Follow" />
+  <a href="https://x.com/mirasoth_ai">
+    <img src="https://img.shields.io/twitter/follow/mirasoth_ai?label=@mirasoth_ai&style=flat-square" alt="X Follow" />
   </a>
 </p>
 
@@ -83,4 +83,4 @@ Both CLIs support the same commands and configuration precedence.
 
 Thank you ❤ all human and non-human contributors.
 
-[![tarzi contributors](https://contrib.rocks/image?repo=mirasurf/tarzi "tarzi contributors")](https://github.com/mirasurf/tarzi/graphs/contributors)
+[![tarzi contributors](https://contrib.rocks/image?repo=mirasoth/tarzi "tarzi contributors")](https://github.com/mirasoth/tarzi/graphs/contributors)

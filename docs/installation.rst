@@ -29,7 +29,7 @@ If you need to build from source or want the latest development version:
 .. code-block:: bash
 
    # Clone the repository
-   git clone https://github.com/mirasurf/tarzi.git
+   git clone https://github.com/mirasoth/tarzi.git
    cd tarzi
    cd tarzi
 
@@ -124,7 +124,7 @@ From Source
 .. code-block:: bash
 
    # Clone the repository
-   git clone https://github.com/mirasurf/tarzi.git
+   git clone https://github.com/mirasoth/tarzi.git
    cd tarzi
 
    # Build the project
@@ -244,7 +244,7 @@ Getting Help
 
 If you encounter issues:
 
-1. Search existing `GitHub issues <https://github.com/mirasurf/tarzi/issues>`_
+1. Search existing `GitHub issues <https://github.com/mirasoth/tarzi/issues>`_
 2. Create a new issue with detailed error information
 3. Join our community discussions
 

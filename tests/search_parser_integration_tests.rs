@@ -600,7 +600,7 @@ async fn test_bing_parser_real_world_integration() {
     println!("Starting real-world Bing search integration test...");
 
     // Perform a real search
-    let search_query = "mirasurf";
+    let search_query = "mirasoth";
     let html_content = match perform_bing_search(search_query).await {
         Ok(html) => html,
         Err(e) => {
