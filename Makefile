@@ -159,11 +159,11 @@ release-python: ## Build Python release artifacts
 
 .PHONY: publish
 publish: publish-rust ## Publish Rust crate to crates.io (use with caution!)
-	$(CARGO) publish
+	$(CARGO) publish --registry crates-io
 
 .PHONY: publish-rust
 publish-rust: ## Publish Rust crate to crates.io (use with caution!)
-	$(CARGO) publish
+	$(CARGO) publish --registry crates-io
 
 .PHONY: publish-python
 publish-python: ## Publish Python package to PyPI
