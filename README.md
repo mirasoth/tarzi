@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://github.com/mirasoth/tarzi/blob/4e751f8d389c0ac7f2061afa9286d2d7fa551aaf/static/tarzi-320.png" alt="Tarzi Logo" width="200" height="200">
 </div>
-<h1 align="center">🐒 tarzi</h1>  
+<h1 align="center">tarzi</h1>  
 <p align="center">
   <a href="https://crates.io/crates/tarzi">
     <img src="https://img.shields.io/crates/v/tarzi.svg?style=flat-square" alt="Crate Version" />
@@ -33,7 +33,7 @@
 
 > **⚠️ Current Limitation**: Currently only search engines without anti-bot protection are workable, such as DuckDuckGo and Brave. We require advanced features to bypass anti-bot measures for other engines like Google and Bing.
 
-**Tarzi** is a unified search interface designed for **Retrieval-Augmented Generation (RAG)** and **agentic systems** built on large language models. Search is a core functionality in these systems, yet most search engine providers (SEPs) impose API paywalls or strict rate limits. **Tarzi**, empowered by browser automation and web crawling technologies, removes these barriers by supporting token-free queries across multiple search engines. With a single dependency, you can integrate and switch between different SEPs as needed—seamlessly and efficiently.
+🐒 **Tarzi** is a unified search interface designed for **Retrieval-Augmented Generation (RAG)** and **agentic systems** built on large language models. Search is a core functionality in these systems, yet most search engine providers (SEPs) impose API paywalls or strict rate limits. **Tarzi**, empowered by browser automation and web crawling technologies, removes these barriers by supporting token-free queries across multiple search engines. With a single dependency, you can integrate and switch between different SEPs as needed—seamlessly and efficiently.
 
 <div align="center">
   <img src="static/tariz-workflow.png" alt="Tarzi Logo" width="100%">
