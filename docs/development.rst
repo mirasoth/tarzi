@@ -1,13 +1,13 @@
 Development Guide
-==================
+=================
 
 This guide covers development setup, building from source, and contributing to tarzi.
 
 Architecture Overview
-====================
+=====================
 
 Parser System
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 Tarzi uses a unified parser architecture for search engines:
 

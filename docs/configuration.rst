@@ -106,15 +106,42 @@ tarzi supports multiple API search providers with automatic fallback capabilitie
 
 **Engine Capabilities:**
 
-| Engine        | Web Query | API Query | API Key Required |
-|---------------|-----------|-----------|------------------|
-| Bing          | Yes       | No        | N/A              |
-| Google        | Yes       | No        | N/A              |
-| Brave         | Yes       | Yes       | Yes              |
-| DuckDuckGo    | Yes       | Yes       | No               |
-| Exa           | Yes       | Yes       | Yes              |
-| Travily       | No        | Yes       | Yes              |
-| Baidu         | Yes       | Yes       | Yes              |
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 20 20
+
+   * - Engine
+     - Web Query
+     - API Query
+     - API Key Required
+   * - Bing
+     - Yes
+     - No
+     - N/A
+   * - Google
+     - Yes
+     - No
+     - N/A
+   * - Brave
+     - Yes
+     - Yes
+     - Yes
+   * - DuckDuckGo
+     - Yes
+     - Yes
+     - No
+   * - Exa
+     - Yes
+     - Yes
+     - Yes
+   * - Travily
+     - No
+     - Yes
+     - Yes
+   * - Baidu
+     - Yes
+     - Yes
+     - Yes
 
 **Autoswitch Strategies:**
 - **smart**: Automatically fallback to available providers if primary fails

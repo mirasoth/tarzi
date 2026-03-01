@@ -1,5 +1,5 @@
 API Search Examples
-==================
+===================
 
 This guide demonstrates how to use tarzi's API search features with multiple providers and automatic fallback capabilities.
 
@@ -17,7 +17,7 @@ Tarzi uses a unified parser architecture where all search engines inherit from b
 This architecture ensures consistent parsing across all search engines and makes it easy to add new engines.
 
 Basic API Search
----------------
+----------------
 
 Python
 ~~~~~~~
@@ -101,10 +101,10 @@ Rust
    }
 
 Autoswitch Strategies
---------------------
+---------------------
 
 Smart Fallback
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 The smart autoswitch strategy automatically falls back to available providers when the primary provider fails:
 
@@ -155,10 +155,10 @@ The none strategy only uses the configured primary provider:
    results = search_engine.search("blockchain technology", mode="apiquery", limit=3)
 
 Provider-Specific Examples
--------------------------
+--------------------------
 
 Brave Search API
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -180,7 +180,7 @@ Brave Search API
    results = search_engine.search("privacy tools", mode="apiquery", limit=5)
 
 Exa Search API
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -202,7 +202,7 @@ Exa Search API
    results = search_engine.search("sustainable energy solutions", mode="apiquery", limit=5)
 
 Travily API
-~~~~~~~~~~
+~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -224,7 +224,7 @@ Travily API
    results = search_engine.search("best restaurants in Paris", mode="apiquery", limit=5)
 
 DuckDuckGo API
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -244,7 +244,7 @@ DuckDuckGo API
    results = search_engine.search("weather forecast", mode="apiquery", limit=3)
 
 Environment Variable Configuration
---------------------------------
+----------------------------------
 
 You can also configure API keys using environment variables:
 
@@ -296,7 +296,7 @@ API search includes comprehensive error handling:
            print(f"Error: {e}")
 
 Performance Comparison
----------------------
+----------------------
 
 Compare browser-based vs API-based search:
 

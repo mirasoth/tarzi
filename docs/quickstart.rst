@@ -1,5 +1,5 @@
 Quick Start Guide
-==================
+=================
 
 This guide will get you up and running with tarzi in just a few minutes. 
 We'll cover the most common use cases and basic functionality.
@@ -221,7 +221,7 @@ Two approaches to web search:
 - **apiquery**: Use official search APIs (requires API key)
 
 API Search Providers
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 tarzi supports multiple API search providers with automatic fallback:
 
@@ -232,7 +232,7 @@ tarzi supports multiple API search providers with automatic fallback:
 - **DuckDuckGo API**: Privacy-focused search (limited functionality)
 
 Autoswitch Strategy
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 When using API search, tarzi can automatically switch between providers:
 

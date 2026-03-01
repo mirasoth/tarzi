@@ -149,52 +149,52 @@ For browser-based fetching, you'll need a WebDriver:
 
 **Firefox** (Recommended):
 
-.. tabs::
+Linux
+~~~~~
 
-   .. tab:: Linux
+.. code-block:: bash
 
-      .. code-block:: bash
+   # Ubuntu/Debian
+   sudo apt-get install firefox
 
-         # Ubuntu/Debian
-         sudo apt-get install firefox
+   # Download GeckoDriver
+   wget https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-linux64.tar.gz
+   tar -xzf geckodriver-linux64.tar.gz
+   sudo mv geckodriver /usr/local/bin/
 
-         # Download GeckoDriver
-         wget https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-linux64.tar.gz
-         tar -xzf geckodriver-linux64.tar.gz
-         sudo mv geckodriver /usr/local/bin/
+macOS
+~~~~~
 
-   .. tab:: macOS
+.. code-block:: bash
 
-      .. code-block:: bash
-
-         # Using Homebrew
-         brew install firefox
-         brew install geckodriver
+   # Using Homebrew
+   brew install firefox
+   brew install geckodriver
 
 **Chrome/Chromium** (Alternative):
 
-.. tabs::
+Linux
+~~~~~
 
-   .. tab:: Linux
+.. code-block:: bash
 
-      .. code-block:: bash
+   # Ubuntu/Debian
+   sudo apt-get update
+   sudo apt-get install -y chromium-browser
 
-         # Ubuntu/Debian
-         sudo apt-get update
-         sudo apt-get install -y chromium-browser
+   # Download ChromeDriver
+   wget https://chromedriver.storage.googleapis.com/LATEST_RELEASE_114/chromedriver_linux64.zip
+   unzip chromedriver_linux64.zip
+   sudo mv chromedriver /usr/local/bin/
 
-         # Download ChromeDriver
-         wget https://chromedriver.storage.googleapis.com/LATEST_RELEASE_114/chromedriver_linux64.zip
-         unzip chromedriver_linux64.zip
-         sudo mv chromedriver /usr/local/bin/
+macOS
+~~~~~
 
-   .. tab:: macOS
+.. code-block:: bash
 
-      .. code-block:: bash
-
-         # Using Homebrew
-         brew install chromium
-         brew install chromedriver
+   # Using Homebrew
+   brew install chromium
+   brew install chromedriver
 
 Verification
 ------------

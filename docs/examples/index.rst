@@ -22,7 +22,7 @@ All examples are available in the `examples/` directory of the repository:
    cargo run --example search_engines
 
 Documentation Examples
----------------------
+----------------------
 
 .. toctree::
    :maxdepth: 2
