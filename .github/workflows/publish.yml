@@ -25,8 +25,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # macos-13 is an intel runner, macos-14 is apple silicon
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-14]
+        # Build for multiple macOS versions to support different platforms
+        # macos-13: Intel (macOS 13)
+        # macos-14: Apple Silicon (macOS 14)
+        # macos-15: Intel (macOS 15) - newer Intel Macs
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-14, macos-15]
     steps:
     - uses: actions/checkout@v5
     - name: Install Python

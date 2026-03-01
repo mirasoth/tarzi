@@ -45,9 +45,17 @@ build-python: ## Build Python wheel
 # =============================================================================
 
 .PHONY: install
-install: build-rust build-python
-	cp $(RUST_TARGET) /usr/local/bin/tarzi
-	pip install $(PYTHON_PACKAGE)
+install: build-rust build-python ## Install locally built packages
+	@echo "Installing Rust binary to target/bin/ (no sudo required)"
+	@mkdir -p target/bin
+	cp $(RUST_TARGET) target/bin/tarzi
+	@if [ -f "$(PYTHON_PACKAGE)" ]; then \
+		echo "Installing Python package from local wheel"; \
+		pip install --force-reinstall $(PYTHON_PACKAGE); \
+	else \
+		echo "No local wheel found, installing in editable mode"; \
+		pip install -e .; \
+	fi
 
 # =============================================================================
 # TEST COMMANDS

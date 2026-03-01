@@ -1,6 +1,6 @@
 [project]
 name = "tarzi"
-version = "0.1.9"
+version = "0.1.10"
 requires-python = ">=3.10"
 keywords = ["web-scraping", "search-engine", "ai-tools", "rust", "browser-automation"]
 description = "Rust-native lite search for AI applications"
@@ -75,7 +75,13 @@ python-source = "python"
 skip = "*-musllinux_*"
 
 [tool.cibuildwheel.macos]
-environment = { MACOSX_DEPLOYMENT_TARGET = "10.14" }
+# Use a more recent deployment target for better compatibility
+# while still maintaining reasonable backward compatibility
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+
+# Build universal2 wheels for macOS to support both Intel and Apple Silicon
+[tool.cibuildwheel.macos.universal2]
+archs = ["x86_64", "arm64"]
 
 [project.scripts]
 pytarzi = "tarzi.__main__:main"
