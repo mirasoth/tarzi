@@ -4,7 +4,9 @@ use crate::config::Config;
 use crate::{Converter, FetchMode, Format, SearchEngine, WebFetcher};
 use pyo3::prelude::*;
 use pyo3::types::PyType;
+use std::future::Future;
 use std::str::FromStr;
+use std::sync::OnceLock;
 use toml;
 
 /// Python module for tarzi - Rust-native lite search for AI applications
@@ -16,6 +18,43 @@ fn tarzi(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySearchResult>()?;
     m.add_class::<PyConfig>()?;
     Ok(())
+}
+
+/// Tokio runtime shared by every Python entry point.
+///
+/// A per-call runtime pays thread-pool setup on every request and prevents the
+/// HTTP client from reusing pooled connections between calls.
+fn shared_runtime() -> PyResult<&'static tokio::runtime::Runtime> {
+    static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+
+    if let Some(runtime) = RUNTIME.get() {
+        return Ok(runtime);
+    }
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to create async runtime: {e}"
+            ))
+        })?;
+    Ok(RUNTIME.get_or_init(|| runtime))
+}
+
+/// Drive `future` to completion on the shared runtime with the GIL released.
+///
+/// Every method below blocks on network or WebDriver I/O for seconds at a time.
+/// Keeping the GIL for that long freezes *all* Python threads in the embedding
+/// process — including event loops and watchdogs — so blocking sections must
+/// always run through here.
+fn block_on_without_gil<F>(py: Python<'_>, future: F) -> PyResult<F::Output>
+where
+    F: Future + Send,
+    F::Output: Send,
+{
+    let runtime = shared_runtime()?;
+    Ok(py.allow_threads(|| runtime.block_on(future)))
 }
 
 /// HTML/text content converter
@@ -65,23 +104,22 @@ impl PyConverter {
     /// Raises:
     ///     ValueError: If format is invalid
     ///     RuntimeError: If conversion fails
-    fn convert(&self, input: &str, format: &str) -> PyResult<String> {
-        let format = Format::from_str(format).map_err(|e| {
+    fn convert(&self, py: Python<'_>, input: &str, format: &str) -> PyResult<String> {
+        let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
             ))
         })?;
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
-            ))
-        })?;
-
-        rt.block_on(async { self.inner.convert(input, format).await })
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Conversion failed: {e}"))
-            })
+        let input = input.to_owned();
+        let converter = &self.inner;
+        block_on_without_gil(
+            py,
+            async move { converter.convert(&input, parsed_format).await },
+        )?
+        .map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Conversion failed: {e}"))
+        })
     }
 
     /// Convert content using custom configuration
@@ -95,19 +133,23 @@ impl PyConverter {
     ///     
     /// Raises:
     ///     RuntimeError: If conversion fails
-    fn convert_with_config(&self, input: &str, config: &PyConfig) -> PyResult<String> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+    fn convert_with_config(
+        &self,
+        py: Python<'_>,
+        input: &str,
+        config: &PyConfig,
+    ) -> PyResult<String> {
+        let input = input.to_owned();
+        let config = config.inner.clone();
+        let converter = &self.inner;
+        block_on_without_gil(py, async move {
+            converter.convert_with_config(&input, &config).await
+        })?
+        .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
+                "Conversion with config failed: {e}"
             ))
-        })?;
-
-        rt.block_on(async { self.inner.convert_with_config(input, &config.inner).await })
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Conversion with config failed: {e}"
-                ))
-            })
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -166,30 +208,28 @@ impl PyWebFetcher {
     /// Raises:
     ///     ValueError: If mode or format is invalid
     ///     RuntimeError: If fetching fails
-    fn fetch(&mut self, url: &str, mode: &str, format: &str) -> PyResult<String> {
-        let mode = FetchMode::from_str(mode).map_err(|e| {
+    fn fetch(&mut self, py: Python<'_>, url: &str, mode: &str, format: &str) -> PyResult<String> {
+        let parsed_mode = FetchMode::from_str(mode).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid fetch mode '{mode}': {e}"
             ))
         })?;
-        let format = Format::from_str(format).map_err(|e| {
+        let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
             ))
         })?;
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+        let owned_url = url.to_owned();
+        let fetcher = &mut self.inner;
+        block_on_without_gil(py, async move {
+            fetcher.fetch(&owned_url, parsed_mode, parsed_format).await
+        })?
+        .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
+                "Failed to fetch '{url}': {e}"
             ))
-        })?;
-
-        rt.block_on(async { self.inner.fetch(url, mode, format).await })
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to fetch '{url}': {e}"
-                ))
-            })
+        })
     }
 
     /// Fetch raw HTML content from a web page
@@ -204,25 +244,23 @@ impl PyWebFetcher {
     /// Raises:
     ///     ValueError: If mode is invalid
     ///     RuntimeError: If fetching fails
-    fn fetch_raw(&mut self, url: &str, mode: &str) -> PyResult<String> {
-        let mode = FetchMode::from_str(mode).map_err(|e| {
+    fn fetch_raw(&mut self, py: Python<'_>, url: &str, mode: &str) -> PyResult<String> {
+        let parsed_mode = FetchMode::from_str(mode).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid fetch mode '{mode}': {e}"
             ))
         })?;
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+        let owned_url = url.to_owned();
+        let fetcher = &mut self.inner;
+        block_on_without_gil(py, async move {
+            fetcher.fetch_raw(&owned_url, parsed_mode).await
+        })?
+        .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
+                "Failed to fetch raw content from '{url}': {e}"
             ))
-        })?;
-
-        rt.block_on(async { self.inner.fetch_raw(url, mode).await })
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to fetch raw content from '{url}': {e}"
-                ))
-            })
+        })
     }
 
     /// Fetch a web page through a proxy
@@ -241,34 +279,36 @@ impl PyWebFetcher {
     ///     RuntimeError: If fetching fails
     fn fetch_with_proxy(
         &mut self,
+        py: Python<'_>,
         url: &str,
         proxy: &str,
         mode: &str,
         format: &str,
     ) -> PyResult<String> {
-        let mode = FetchMode::from_str(mode).map_err(|e| {
+        let parsed_mode = FetchMode::from_str(mode).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid fetch mode '{mode}': {e}"
             ))
         })?;
-        let format = Format::from_str(format).map_err(|e| {
+        let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
             ))
         })?;
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+        let owned_url = url.to_owned();
+        let owned_proxy = proxy.to_owned();
+        let fetcher = &mut self.inner;
+        block_on_without_gil(py, async move {
+            fetcher
+                .fetch_with_proxy(&owned_url, &owned_proxy, parsed_mode, parsed_format)
+                .await
+        })?
+        .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
+                "Failed to fetch '{url}' via proxy '{proxy}': {e}"
             ))
-        })?;
-
-        rt.block_on(async { self.inner.fetch_with_proxy(url, proxy, mode, format).await })
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to fetch '{url}' via proxy '{proxy}': {e}"
-                ))
-            })
+        })
     }
 
     fn __repr__(&self) -> String {
@@ -327,14 +367,15 @@ impl PySearchEngine {
     ///     
     /// Raises:
     ///     RuntimeError: If search fails
-    fn search(&mut self, query: &str, limit: usize) -> PyResult<Vec<PySearchResult>> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
-            ))
-        })?;
-
-        rt.block_on(async { self.inner.search(query, limit).await })
+    fn search(
+        &mut self,
+        py: Python<'_>,
+        query: &str,
+        limit: usize,
+    ) -> PyResult<Vec<PySearchResult>> {
+        let owned_query = query.to_owned();
+        let engine = &mut self.inner;
+        block_on_without_gil(py, async move { engine.search(&owned_query, limit).await })?
             .map(|results| {
                 results
                     .into_iter()
@@ -369,33 +410,30 @@ impl PySearchEngine {
     ///     RuntimeError: If search or fetch fails
     fn search_with_content(
         &mut self,
+        py: Python<'_>,
         query: &str,
         limit: usize,
         fetch_mode: &str,
         format: &str,
     ) -> PyResult<Vec<(PySearchResult, String)>> {
-        let fetch_mode = FetchMode::from_str(fetch_mode).map_err(|e| {
+        let parsed_fetch_mode = FetchMode::from_str(fetch_mode).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid fetch mode '{fetch_mode}': {e}"
             ))
         })?;
-        let format = Format::from_str(format).map_err(|e| {
+        let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
             ))
         })?;
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
-            ))
-        })?;
-
-        rt.block_on(async {
-            self.inner
-                .search_with_content(query, limit, fetch_mode, format)
+        let owned_query = query.to_owned();
+        let engine = &mut self.inner;
+        block_on_without_gil(py, async move {
+            engine
+                .search_with_content(&owned_query, limit, parsed_fetch_mode, parsed_format)
                 .await
-        })
+        })?
         .map(|results| {
             results
                 .into_iter()
@@ -434,33 +472,35 @@ impl PySearchEngine {
     ///     RuntimeError: If search fails
     fn search_with_proxy(
         &mut self,
+        py: Python<'_>,
         query: &str,
         limit: usize,
         proxy: &str,
     ) -> PyResult<Vec<PySearchResult>> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+        let owned_query = query.to_owned();
+        let owned_proxy = proxy.to_owned();
+        let engine = &mut self.inner;
+        block_on_without_gil(py, async move {
+            engine
+                .search_with_proxy(&owned_query, limit, &owned_proxy)
+                .await
+        })?
+        .map(|results| {
+            results
+                .into_iter()
+                .map(|r| PySearchResult {
+                    title: r.title,
+                    url: r.url,
+                    snippet: r.snippet,
+                    rank: r.rank,
+                })
+                .collect()
+        })
+        .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
+                "Search with proxy failed for query '{query}': {e}"
             ))
-        })?;
-
-        rt.block_on(async { self.inner.search_with_proxy(query, limit, proxy).await })
-            .map(|results| {
-                results
-                    .into_iter()
-                    .map(|r| PySearchResult {
-                        title: r.title,
-                        url: r.url,
-                        snippet: r.snippet,
-                        rank: r.rank,
-                    })
-                    .collect()
-            })
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Search with proxy failed for query '{query}': {e}"
-                ))
-            })
+        })
     }
 
     /// Shutdown browser and driver resources
@@ -473,15 +513,9 @@ impl PySearchEngine {
     ///     
     /// Raises:
     ///     RuntimeError: If shutdown fails
-    fn shutdown(&mut self) -> PyResult<()> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create async runtime: {e}"
-            ))
-        })?;
-
-        rt.block_on(async { self.inner.shutdown().await });
-        Ok(())
+    fn shutdown(&mut self, py: Python<'_>) -> PyResult<()> {
+        let engine = &mut self.inner;
+        block_on_without_gil(py, async move { engine.shutdown().await })
     }
 
     fn __repr__(&self) -> String {
@@ -623,35 +657,39 @@ mod tests {
 
     #[test]
     fn test_py_converter_convert_html() {
+        setup_python();
         let converter = PyConverter::new();
         let html = "<h1>Test</h1>";
-        let result = converter.convert(html, "html").unwrap();
+        let result = Python::with_gil(|py| converter.convert(py, html, "html")).unwrap();
         assert_eq!(result, html);
     }
 
     #[test]
     fn test_py_converter_convert_markdown() {
+        setup_python();
         let converter = PyConverter::new();
         let html = "<h1>Test</h1>";
-        let result = converter.convert(html, "markdown").unwrap();
+        let result = Python::with_gil(|py| converter.convert(py, html, "markdown")).unwrap();
         // The HTML to markdown conversion produces "# Test\n"
         assert!(result.contains("# Test") || result.contains("Test"));
     }
 
     #[test]
     fn test_py_converter_convert_json() {
+        setup_python();
         let converter = PyConverter::new();
         let html = "<h1>Test</h1><p>Content</p>";
-        let result = converter.convert(html, "json").unwrap();
+        let result = Python::with_gil(|py| converter.convert(py, html, "json")).unwrap();
         assert!(result.contains("Test"));
         assert!(result.contains("Content"));
     }
 
     #[test]
     fn test_py_converter_convert_yaml() {
+        setup_python();
         let converter = PyConverter::new();
         let html = "<h1>Test</h1><p>Content</p>";
-        let result = converter.convert(html, "yaml").unwrap();
+        let result = Python::with_gil(|py| converter.convert(py, html, "yaml")).unwrap();
         assert!(result.contains("Test"));
         assert!(result.contains("Content"));
     }
@@ -661,9 +699,16 @@ mod tests {
         setup_python();
         let converter = PyConverter::new();
         let html = "<h1>Test</h1>";
-        let result = converter.convert(html, "invalid");
+        let result = Python::with_gil(|py| converter.convert(py, html, "invalid"));
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid format"));
+    }
+
+    #[test]
+    fn test_shared_runtime_is_reused() {
+        let first = shared_runtime().expect("runtime");
+        let second = shared_runtime().expect("runtime");
+        assert!(std::ptr::eq(first, second), "each call built a new runtime");
     }
 
     #[test]
