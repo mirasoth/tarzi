@@ -232,3 +232,4 @@ __marimo__/
 .idea/
 .python-version
 Cargo.lock
+.soothe/
