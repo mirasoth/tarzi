@@ -9,19 +9,20 @@ Architecture Overview
 Parser System
 ~~~~~~~~~~~~~
 
-Tarzi uses a unified parser architecture for search engines:
+Tarzi search uses:
 
-- **Base Traits**: `BaseSearchParser`, `WebSearchParser`, `ApiSearchParser`
-- **Base Structs**: `BaseWebParser`, `BaseApiParser` for common functionality
-- **Parser Factory**: Mode-aware parser selection and management
-- **Unified Parser**: Combines web and API parsing capabilities
+- **BaseParser** trait for HTML/JSON result parsing
+- **ParserFactory** to select an engine-specific parser
+- **search::access** to resolve API → plain HTTP → browser
+- **search::api** for Brave and Serper REST clients
 
 To add a new search engine:
 
-1. Create a new parser file (e.g., `src/search/parser/newengine.rs`)
-2. Implement the appropriate base traits
-3. Add the parser to `ParserFactory::get_parser()`
-4. Update `SearchEngineType` enum if needed
+1. Create a new parser file (e.g., ``src/search/parser/newengine.rs``)
+2. Implement ``BaseParser``
+3. Add the parser to ``ParserFactory::get_parser()``
+4. Update ``SearchEngineType`` and query patterns in ``constants.rs``
+5. If the engine has an official API, add a client under ``src/search/api/`` and wire it into the access cascade
 
 Development Setup
 -----------------

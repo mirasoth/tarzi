@@ -39,9 +39,6 @@ def main():
     # SearchEngine
     search_engine = tarzi.SearchEngine()
     try:
-        # Note: API keys are now configured per provider in the configuration
-        # See the configuration example below for how to set up API keys
-
         results = search_engine.search("machine learning", 2)
         print(f"Found {len(results)} search results:")
         for i, result in enumerate(results):
@@ -49,6 +46,8 @@ def main():
             print(f"     {result.snippet}")
     except Exception as e:
         print(f"Search failed: {e}")
+    finally:
+        search_engine.shutdown()
 
     # Configuration-based usage
     try:

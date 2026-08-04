@@ -172,13 +172,13 @@ fn test_driver_binary_detection() {
     }
 
     // At least one of the results should provide useful error messages
-    if chrome_result.is_err() {
-        let error_msg = format!("{}", chrome_result.unwrap_err());
+    if let Err(err) = chrome_result {
+        let error_msg = format!("{err}");
         assert!(error_msg.contains("chromedriver") || error_msg.contains("ChromeDriver"));
     }
 
-    if firefox_result.is_err() {
-        let error_msg = format!("{}", firefox_result.unwrap_err());
+    if let Err(err) = firefox_result {
+        let error_msg = format!("{err}");
         assert!(error_msg.contains("geckodriver") || error_msg.contains("GeckoDriver"));
     }
 }

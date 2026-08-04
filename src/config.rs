@@ -1,5 +1,5 @@
 use crate::constants::{
-    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_LIMIT, DEFAULT_TIMEOUT_SECS,
+    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_LIMIT, DEFAULT_SEARCH_MODE, DEFAULT_TIMEOUT_SECS,
     FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN, LOG_LEVEL_INFO, SEARCH_ENGINE_BING,
 };
 use crate::{Result, error::TarziError};
@@ -49,6 +49,11 @@ pub struct SearchConfig {
     pub query_pattern: String,
     #[serde(default = "default_result_limit")]
     pub limit: usize,
+    /// Search access mode: auto | apiquery | webquery
+    #[serde(default = "default_search_mode")]
+    pub mode: String,
+    /// Optional API key for the configured engine (env vars take precedence)
+    pub api_key: Option<String>,
 }
 
 /// CLI configuration parameters that can override config file values
@@ -144,6 +149,12 @@ impl Config {
         if other.search.query_pattern != default_query_pattern() {
             self.search.query_pattern = other.search.query_pattern.clone();
         }
+        if other.search.mode != default_search_mode() {
+            self.search.mode = other.search.mode.clone();
+        }
+        if other.search.api_key.is_some() {
+            self.search.api_key = other.search.api_key.clone();
+        }
     }
 
     /// Apply CLI parameters to config (highest priority)
@@ -223,6 +234,8 @@ impl Default for SearchConfig {
             engine: default_search_engine(),
             query_pattern: default_query_pattern(),
             limit: default_result_limit(),
+            mode: default_search_mode(),
+            api_key: None,
         }
     }
 }
@@ -270,6 +283,10 @@ fn default_result_limit() -> usize {
     DEFAULT_SEARCH_LIMIT
 }
 
+fn default_search_mode() -> String {
+    DEFAULT_SEARCH_MODE.to_string()
+}
+
 fn default_web_driver() -> String {
     "chromedriver".to_string()
 }
@@ -282,10 +299,10 @@ pub fn get_proxy_from_env_or_config(config_proxy: &Option<String>) -> Option<Str
     let env_vars = ["HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"];
 
     for env_var in &env_vars {
-        if let Ok(proxy) = std::env::var(env_var) {
-            if !proxy.is_empty() {
-                return Some(proxy);
-            }
+        if let Ok(proxy) = std::env::var(env_var)
+            && !proxy.is_empty()
+        {
+            return Some(proxy);
         }
     }
 
@@ -679,6 +696,8 @@ limit = 10
                 engine: SEARCH_ENGINE_GOOGLE.to_string(),
                 query_pattern: "custom pattern".to_string(),
                 limit: DEFAULT_SEARCH_LIMIT,
+                mode: DEFAULT_SEARCH_MODE.to_string(),
+                api_key: None,
             },
         };
 

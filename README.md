@@ -43,8 +43,8 @@
 
 - 🦀 **Dual Implementation**: Native Rust library and Python wrapper with CLI tools
 - 🔄 **Content Conversion**: Convert raw HTML into Markdown, JSON, or YAML, which is ready for LLMs
-- 🔍 **Search Integration**: Fetch fully rendered result pages with a unified interface for token-free headless browser mode
-- 🧠 **Multi-Engine Support**: Works with Bing, Google, DuckDuckGo, Baidu etc.
+- 🔍 **Search Integration**: API → plain HTTP → headless browser cascade with a unified result format
+- 🧠 **Multi-Engine Support**: Bing, Google, Google Serper, DuckDuckGo, Brave, Baidu, Sogou Weixin
 - 🛡️ **Proxy Support**: Bypass network bans using proxy support to access global SEPs
 - 🚀 **End-to-End Workflow**: Full pipeline from search to content extraction for AI and automation use cases
 

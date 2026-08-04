@@ -191,11 +191,11 @@ async fn perform_google_search(query: &str) -> Result<String, Box<dyn std::error
         tokio::time::sleep(Duration::from_millis(2000)).await;
 
         // Try to accept cookies if prompted
-        if let Ok(cookie_button) = driver.find(By::Css("button#L2AGLb")).await {
-            if (cookie_button.click().await).is_ok() {
-                println!("Accepted Google cookies");
-                tokio::time::sleep(Duration::from_millis(1000)).await;
-            }
+        if let Ok(cookie_button) = driver.find(By::Css("button#L2AGLb")).await
+            && (cookie_button.click().await).is_ok()
+        {
+            println!("Accepted Google cookies");
+            tokio::time::sleep(Duration::from_millis(1000)).await;
         }
 
         // Try to find search box with different selectors

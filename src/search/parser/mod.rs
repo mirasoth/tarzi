@@ -9,6 +9,7 @@ pub mod bing;
 pub mod brave;
 pub mod duckduckgo;
 pub mod google;
+pub mod google_serper;
 pub mod sogou_weixin;
 
 use crate::search::types::SearchEngineType;
@@ -20,6 +21,7 @@ pub use bing::BingParser;
 pub use brave::BraveParser;
 pub use duckduckgo::DuckDuckGoParser;
 pub use google::GoogleParser;
+pub use google_serper::GoogleSerperParser;
 pub use sogou_weixin::SogouWeixinParser;
 
 /// Factory for creating parsers based on search engine type
@@ -37,6 +39,7 @@ impl ParserFactory {
             SearchEngineType::Bing => Box::new(BingParser::new()),
             SearchEngineType::DuckDuckGo => Box::new(DuckDuckGoParser::new()),
             SearchEngineType::Google => Box::new(GoogleParser::new()),
+            SearchEngineType::GoogleSerper => Box::new(GoogleSerperParser::new()),
             SearchEngineType::BraveSearch => Box::new(BraveParser::new()),
             SearchEngineType::Baidu => Box::new(BaiduParser::new()),
             SearchEngineType::SougouWeixin => Box::new(SogouWeixinParser::new()),

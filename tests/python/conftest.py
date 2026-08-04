@@ -115,20 +115,19 @@ except ImportError as e:
         def __repr__(self):
             return "SearchEngine()"
 
-        def search(self, query, mode, limit):
-            if mode == "invalid_mode":
-                raise ValueError("Invalid search mode: invalid_mode")
+        def search(self, query, limit):
             return [MockSearchResult() for _ in range(min(limit, 2))]
 
-        def search_with_content(self, query, search_mode, limit, fetch_mode, format_type):
-            if search_mode == "invalid_mode":
-                raise ValueError("Invalid search mode: invalid_mode")
+        def search_with_content(self, query, limit, fetch_mode, format_type):
             if fetch_mode == "invalid_fetch_mode":
                 raise ValueError("Invalid fetch mode: invalid_fetch_mode")
             if format_type == "invalid_format":
                 raise ValueError("Invalid format: invalid_format")
-            results = self.search(query, search_mode, limit)
+            results = self.search(query, limit)
             return [(r, f"Mock content for {r.url}") for r in results]
+
+        def shutdown(self):
+            return None
 
         @classmethod
         def from_config(cls, config):
@@ -176,15 +175,15 @@ except ImportError as e:
             return f"<html><body>Mock content from {url}</body></html>"
 
         @staticmethod
-        def search_web(query, mode, limit):
-            if mode == "invalid_mode":
-                raise ValueError("Invalid search mode: invalid_mode")
+        def fetch_url(url, mode="plain_request", format_type="html"):
+            return MockTarzi.fetch(url, mode, format_type)
+
+        @staticmethod
+        def search_web(query, limit):
             return [MockSearchResult() for _ in range(min(limit, 2))]
 
         @staticmethod
-        def search_with_content(query, search_mode, limit, fetch_mode, format_type):
-            if search_mode == "invalid_mode":
-                raise ValueError("Invalid search mode: invalid_mode")
+        def search_with_content(query, limit, fetch_mode, format_type):
             if fetch_mode == "invalid_fetch_mode":
                 raise ValueError("Invalid fetch mode: invalid_fetch_mode")
             if format_type == "invalid_format":

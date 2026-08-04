@@ -144,22 +144,45 @@ pub const FETCHER_MODE_PLAIN: &str = "plain";
 pub const SEARCH_ENGINE_DUCKDUCKGO: &str = "duckduckgo";
 pub const SEARCH_ENGINE_BING: &str = "bing";
 pub const SEARCH_ENGINE_GOOGLE: &str = "google";
+pub const SEARCH_ENGINE_GOOGLE_SERPER: &str = "google_serper";
+pub const SEARCH_ENGINE_SERPER_ALIAS: &str = "serper";
 pub const SEARCH_ENGINE_BRAVE: &str = "brave";
 pub const SEARCH_ENGINE_BAIDU: &str = "baidu";
 pub const SEARCH_ENGINE_SOUGOU_WEIXIN: &str = "sogou_weixin";
+
+// Search modes
+pub const SEARCH_MODE_AUTO: &str = "auto";
+pub const SEARCH_MODE_APIQUERY: &str = "apiquery";
+pub const SEARCH_MODE_WEBQUERY: &str = "webquery";
+
+/// Default search mode
+pub const DEFAULT_SEARCH_MODE: &str = SEARCH_MODE_AUTO;
+
+// API key environment variable names
+pub const ENV_BRAVE_API_KEY: &str = "BRAVE_API_KEY";
+pub const ENV_SERPER_API_KEY: &str = "SERPER_API_KEY";
 
 // ============================================================================
 // Search Engine Query Patterns
 // ============================================================================
 
-/// Web query patterns
+/// Browser / JS SERP query patterns
 pub const DUCKDUCKGO_QUERY_PATTERN: &str = "https://duckduckgo.com/?q={query}";
+/// Plain HTML DuckDuckGo endpoint (no JS required)
+pub const DUCKDUCKGO_PLAIN_QUERY_PATTERN: &str = "https://html.duckduckgo.com/html/?q={query}";
 pub const BING_QUERY_PATTERN: &str = "https://www.bing.com/search?q={query}";
 pub const GOOGLE_QUERY_PATTERN: &str = "https://www.google.com/search?q={query}";
 pub const BRAVE_QUERY_PATTERN: &str = "https://search.brave.com/search?q={query}&source=web";
 pub const BAIDU_QUERY_PATTERN: &str = "https://www.baidu.com/s?wd={query}";
 pub const SOUGOU_WEIXIN_QUERY_PATTERN: &str =
     "https://weixin.sogou.com/weixin?type=2&s_from=input&&ie=utf8&query={query}";
+
+/// Brave Search API endpoint pattern
+pub const BRAVE_API_QUERY_PATTERN: &str =
+    "https://api.search.brave.com/res/v1/web/search?q={query}&count={limit}";
+
+/// Serper Google search API endpoint
+pub const SERPER_API_URL: &str = "https://google.serper.dev/search";
 
 // ============================================================================
 // Default Values

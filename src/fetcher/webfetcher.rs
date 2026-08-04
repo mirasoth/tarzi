@@ -44,14 +44,14 @@ impl WebFetcher {
 
         // Use environment variables for proxy with fallback to config
         let proxy = crate::config::get_proxy_from_env_or_config(&config.fetcher.proxy);
-        if let Some(proxy) = proxy {
-            if !proxy.is_empty() {
-                if let Ok(proxy_obj) = reqwest::Proxy::http(&proxy) {
-                    client_builder = client_builder.proxy(proxy_obj);
-                    info!("Using proxy from environment/config: {}", proxy);
-                } else {
-                    warn!("Invalid proxy configuration: {}", proxy);
-                }
+        if let Some(proxy) = proxy
+            && !proxy.is_empty()
+        {
+            if let Ok(proxy_obj) = reqwest::Proxy::http(&proxy) {
+                client_builder = client_builder.proxy(proxy_obj);
+                info!("Using proxy from environment/config: {}", proxy);
+            } else {
+                warn!("Invalid proxy configuration: {}", proxy);
             }
         }
 
@@ -88,6 +88,39 @@ impl WebFetcher {
         let response = response.error_for_status()?;
         let content = response.text().await?;
         Ok(content)
+    }
+
+    /// GET with custom headers (used by search API clients).
+    pub async fn fetch_get_with_headers(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+    ) -> Result<String> {
+        let url = Url::parse(url)?;
+        let mut request = self.http_client.get(url);
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
+        let response = request.send().await?;
+        let response = response.error_for_status()?;
+        Ok(response.text().await?)
+    }
+
+    /// POST JSON with custom headers (used by search API clients).
+    pub async fn fetch_post_json_with_headers(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &serde_json::Value,
+    ) -> Result<String> {
+        let url = Url::parse(url)?;
+        let mut request = self.http_client.post(url).json(body);
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
+        let response = request.send().await?;
+        let response = response.error_for_status()?;
+        Ok(response.text().await?)
     }
 
     /// Fetch content using browser (with or without headless mode)
@@ -486,12 +519,10 @@ impl WebFetcher {
                 Vec::<serde_json::Value>::new(),
             )
             .await
+            && let Ok(state) = ret.convert::<String>()
+            && state != "complete"
         {
-            if let Ok(state) = ret.convert::<String>() {
-                if state != "complete" {
-                    tokio::time::sleep(PAGE_LOAD_WAIT).await;
-                }
-            }
+            tokio::time::sleep(PAGE_LOAD_WAIT).await;
         }
 
         // Briefly wait for anchors to populate (dynamic JS apps)
@@ -503,12 +534,10 @@ impl WebFetcher {
                     Vec::<serde_json::Value>::new(),
                 )
                 .await
+                && let Ok(count) = ret.convert::<i64>()
+                && count >= 20
             {
-                if let Ok(count) = ret.convert::<i64>() {
-                    if count >= 20 {
-                        break;
-                    }
-                }
+                break;
             }
             attempts += 1;
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;

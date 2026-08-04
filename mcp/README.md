@@ -116,7 +116,13 @@ Search the web using Tarzi search engines.
 **Parameters:**
 - `query` (string): Search query
 - `limit` (integer, default: 10): Maximum results to return
-- `mode` (string, default: "webquery"): Search mode ("webquery" or "apiquery")
+
+**Search access cascade** (configured via tarzi `search.mode`, default `auto`):
+1. **apiquery** when an API key is available (`BRAVE_API_KEY`, `SERPER_API_KEY`, or `search.api_key`)
+2. **plain HTTP** to the engine public search URL
+3. **headless browser** as last resort
+
+Supported engines include `bing`, `google`, `google_serper` (alias `serper`), `brave`, `duckduckgo`, `baidu`, `sogou_weixin`.
 
 **Returns:** List of search results with title, URL, snippet, and rank.
 
@@ -124,8 +130,7 @@ Search the web using Tarzi search engines.
 ```json
 {
   "query": "python programming",
-  "limit": 3,
-  "mode": "webquery"
+  "limit": 3
 }
 ```
 
@@ -182,7 +187,6 @@ Search and fetch content from results with browser automation support.
 **Parameters:**
 - `query` (string): Search query
 - `limit` (integer, default: 5): Maximum results to process
-- `search_mode` (string, default: "webquery"): Search mode ("webquery" or "apiquery")
 - `fetch_mode` (string, default: "plain_request"): Fetch mode ("plain_request", "browser_headless", or "browser_headed")
 - `content_format` (string, default: "markdown"): Content format
 

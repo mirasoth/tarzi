@@ -468,7 +468,6 @@ impl PySearchEngine {
     ///     List[SearchResult]: List of search results
     ///     
     /// Raises:
-    ///     ValueError: If mode is invalid
     ///     RuntimeError: If search fails
     fn search_with_proxy(
         &mut self,

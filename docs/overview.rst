@@ -56,37 +56,29 @@ Key features:
 Search Module
 ~~~~~~~~~~~~~
 
-The Search module provides comprehensive search engine integration with a unified parser architecture:
+The Search module provides comprehensive search engine integration:
 
-**Base Parser Architecture**
-   All search engines inherit from base parser traits:
-   
-   - **BaseSearchParser**: Core trait with name, engine type, and support checking
-   - **WebSearchParser**: HTML-based parsing with `parse_html()` method
-   - **ApiSearchParser**: JSON-based parsing with `parse_json()` method
-   - **UnifiedParser**: Combines web and API parsing capabilities
+**Access Cascade**
+   Each query resolves in priority order:
 
-**Browser-Based Search**
-   Scrape search results directly from search engine pages:
-   
-   - Google, Bing, DuckDuckGo, Brave Search, Baidu support
-   - Custom search engine configuration
-   - Anti-detection measures
+   - **API** when a key is available (Brave, Google Serper)
+   - **Plain HTTP** to the engine public search URL
+   - **Headless browser** as last resort
 
-**API-Based Search**
-   Direct API integration for supported search engines:
-   
-   - **Multiple API Providers**: Brave, Google, Exa, Travily, DuckDuckGo (more to come)
-   - **Automatic Provider Switching**: Smart fallback when primary provider fails
-   - **Proxy Support**: Full proxy support for all API providers
-   - **Structured Results**: Consistent result format across all providers
+**HTML Parsers**
+   Engine-specific HTML parsers via ``BaseParser`` + ``ParserFactory``:
 
-**Parser Factory**
-   Factory pattern for creating and managing parsers:
-   
-   - Mode-aware parser selection (WebQuery vs ApiQuery)
-   - Custom parser registration
-   - Automatic fallback for unsupported combinations
+   - Bing, Google, DuckDuckGo, Brave, Baidu, Sogou Weixin
+
+**API Clients**
+   REST JSON clients for:
+
+   - Brave Search API (``BRAVE_API_KEY``)
+   - Google Serper (``SERPER_API_KEY``, engine ``google_serper``)
+
+**Configuration**
+   ``search.mode`` = ``auto`` | ``apiquery`` | ``webquery``;
+   optional ``search.api_key`` (env keys take precedence).
 
 Key features:
 

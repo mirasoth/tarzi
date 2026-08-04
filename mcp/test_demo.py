@@ -17,7 +17,7 @@ class MockSearchResult:
 
 class MockTarzi:
     @staticmethod
-    def search_web(query: str, mode: str, limit: int) -> List[MockSearchResult]:
+    def search_web(query: str, limit: int) -> List[MockSearchResult]:
         """Mock search function for demo."""
         return [
             MockSearchResult(f"Result {i+1} for '{query}'", f"https://example{i+1}.com", 

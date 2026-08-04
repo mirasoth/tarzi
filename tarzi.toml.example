@@ -43,10 +43,18 @@
 # -----------------------------------------------------------------------------
 [search]
 # Search engine to use
-# Options: "google", "bing", "duckduckgo", "brave", "baidu"
+# Options: "bing", "google", "google_serper" (alias "serper"), "brave",
+#          "duckduckgo", "baidu", "sogou_weixin"
 # engine = "bing"
 
-# URL pattern for search queries when engine is "custom"
+# Access mode: "auto" (API → plain HTTP → browser), "apiquery", "webquery"
+# mode = "auto"
+
+# Optional API key for the selected engine (env vars take precedence):
+#   BRAVE_API_KEY for brave, SERPER_API_KEY for google_serper
+# api_key = ""
+
+# URL pattern for search queries (overrides engine default when set)
 # Use {query} as placeholder for the search term
 # query_pattern = "https://example.com/search?q={query}"
 

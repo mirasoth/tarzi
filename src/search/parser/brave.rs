@@ -77,12 +77,12 @@ impl BraveParser {
         }
 
         // If no title found in headers, look for any link
-        if title.is_empty() {
-            if let Some(link) = node.find(Name("a")).next() {
-                title = link.text().trim().to_string();
-                if let Some(href) = link.attr("href") {
-                    url = self.normalize_url(href);
-                }
+        if title.is_empty()
+            && let Some(link) = node.find(Name("a")).next()
+        {
+            title = link.text().trim().to_string();
+            if let Some(href) = link.attr("href") {
+                url = self.normalize_url(href);
             }
         }
 
@@ -136,22 +136,21 @@ impl BraveParser {
         // Prefer explicit injected JSON if available
         if let Some(start) =
             html.find("<script id=\"tarzi-brave-results\" type=\"application/json\">")
+            && let Some(close) = html[start..].find("</script>")
         {
-            if let Some(close) = html[start..].find("</script>") {
-                let json_str = &html[start..start + close];
-                if let Some(json_start) = json_str.find('>') {
-                    let payload = &json_str[json_start + 1..];
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(payload) {
-                        if let Some(arr) = v.get("results").and_then(|x| x.as_array()) {
-                            let filtered: Vec<_> = arr
-                                .iter()
-                                .filter(|&r| r.get("title").is_some() && r.get("url").is_some())
-                                .cloned()
-                                .collect();
-                            if !filtered.is_empty() {
-                                return Some(filtered);
-                            }
-                        }
+            let json_str = &html[start..start + close];
+            if let Some(json_start) = json_str.find('>') {
+                let payload = &json_str[json_start + 1..];
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(payload)
+                    && let Some(arr) = v.get("results").and_then(|x| x.as_array())
+                {
+                    let filtered: Vec<_> = arr
+                        .iter()
+                        .filter(|&r| r.get("title").is_some() && r.get("url").is_some())
+                        .cloned()
+                        .collect();
+                    if !filtered.is_empty() {
+                        return Some(filtered);
                     }
                 }
             }
@@ -172,10 +171,11 @@ impl BraveParser {
                 let json_fixed = self.fix_js_object_to_json(json_str);
 
                 // Try parsing as single object
-                if let Ok(single_result) = serde_json::from_str::<serde_json::Value>(&json_fixed) {
-                    if single_result.get("title").is_some() && single_result.get("url").is_some() {
-                        return Some(vec![single_result]);
-                    }
+                if let Ok(single_result) = serde_json::from_str::<serde_json::Value>(&json_fixed)
+                    && single_result.get("title").is_some()
+                    && single_result.get("url").is_some()
+                {
+                    return Some(vec![single_result]);
                 }
             }
         }
@@ -185,18 +185,18 @@ impl BraveParser {
         while let Some(pos) = html[current_pos..].find("\"title\":") {
             let absolute_pos = current_pos + pos;
             // Look backward for array start
-            if let Some(array_start) = self.find_array_start(html, absolute_pos) {
-                if let Some(array_end) = self.find_json_end(html, array_start + 1) {
-                    let json_str = &html[array_start + 1..array_end];
-                    if let Ok(results) = serde_json::from_str::<Vec<serde_json::Value>>(json_str) {
-                        // Filter results that look like search results
-                        let filtered: Vec<_> = results
-                            .into_iter()
-                            .filter(|r| r.get("title").is_some() && r.get("url").is_some())
-                            .collect();
-                        if !filtered.is_empty() {
-                            return Some(filtered);
-                        }
+            if let Some(array_start) = self.find_array_start(html, absolute_pos)
+                && let Some(array_end) = self.find_json_end(html, array_start + 1)
+            {
+                let json_str = &html[array_start + 1..array_end];
+                if let Ok(results) = serde_json::from_str::<Vec<serde_json::Value>>(json_str) {
+                    // Filter results that look like search results
+                    let filtered: Vec<_> = results
+                        .into_iter()
+                        .filter(|r| r.get("title").is_some() && r.get("url").is_some())
+                        .collect();
+                    if !filtered.is_empty() {
+                        return Some(filtered);
                     }
                 }
             }

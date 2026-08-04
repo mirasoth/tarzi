@@ -207,15 +207,15 @@ impl BrowserManager {
         // Add proxy configuration if available
         if let Some(config) = &self.config {
             let proxy = crate::config::get_proxy_from_env_or_config(&config.fetcher.proxy);
-            if let Some(proxy_url) = proxy {
-                if !proxy_url.is_empty() {
-                    info!("Configuring browser with proxy: {}", proxy_url);
-                    caps.add_arg(&format!("--proxy-server={proxy_url}"))
-                        .map_err(|e| {
-                            error!("Failed to add proxy-server arg: {}", e);
-                            TarziError::Browser(format!("Failed to add proxy-server arg: {e}"))
-                        })?;
-                }
+            if let Some(proxy_url) = proxy
+                && !proxy_url.is_empty()
+            {
+                info!("Configuring browser with proxy: {}", proxy_url);
+                caps.add_arg(&format!("--proxy-server={proxy_url}"))
+                    .map_err(|e| {
+                        error!("Failed to add proxy-server arg: {}", e);
+                        TarziError::Browser(format!("Failed to add proxy-server arg: {e}"))
+                    })?;
             }
         }
         Ok(())
@@ -329,29 +329,28 @@ impl BrowserManager {
     /// 1. External: configured by web_driver_url - if set, use it exclusively and fail if unavailable
     /// 2. Self-managed: managed by DriverManager - used only if web_driver_url is not set
     async fn get_or_create_webdriver_endpoint(&mut self) -> Result<String> {
-        if let Some(config) = &self.config {
-            if let Some(ref url) = config.fetcher.web_driver_url {
-                if !url.is_empty() {
-                    // External driver type: web_driver_url is explicitly configured
-                    info!("Using external WebDriver URL from config: {}", url);
-                    if is_webdriver_available_at_url(url).await {
-                        info!(
-                            "External WebDriver server is available and ready at: {}",
-                            url
-                        );
-                        return Ok(url.clone());
-                    } else {
-                        error!(
-                            "External WebDriver URL '{}' is configured but server is not available",
-                            url
-                        );
-                        return Err(TarziError::Browser(format!(
-                            "External WebDriver server is not available at configured URL: {url}. \
+        if let Some(config) = &self.config
+            && let Some(ref url) = config.fetcher.web_driver_url
+            && !url.is_empty()
+        {
+            // External driver type: web_driver_url is explicitly configured
+            info!("Using external WebDriver URL from config: {}", url);
+            if is_webdriver_available_at_url(url).await {
+                info!(
+                    "External WebDriver server is available and ready at: {}",
+                    url
+                );
+                return Ok(url.clone());
+            } else {
+                error!(
+                    "External WebDriver URL '{}' is configured but server is not available",
+                    url
+                );
+                return Err(TarziError::Browser(format!(
+                    "External WebDriver server is not available at configured URL: {url}. \
                              Please ensure the WebDriver server is running at this URL, or remove \
                              the web_driver_url configuration to use self-managed drivers."
-                        )));
-                    }
-                }
+                )));
             }
         }
 

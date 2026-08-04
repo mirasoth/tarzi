@@ -162,8 +162,9 @@ Add to `claude_desktop_config.json`:
 
 ### 1. search_web
 - **Purpose**: Search the web using Tarzi search engines
-- **Parameters**: query, limit, mode (webquery/apiquery)
-- **Browser**: Uses browser automation for webquery mode
+- **Parameters**: query, limit
+- **Access cascade**: auto mode tries API (when key present) → plain HTTP → headless browser
+- **API keys**: `BRAVE_API_KEY`, `SERPER_API_KEY` (or `search.api_key` in config)
 - **Returns**: Structured search results
 
 ### 2. fetch ⭐ **Enhanced with Browser Automation**
@@ -183,7 +184,8 @@ Add to `claude_desktop_config.json`:
 
 ### 4. search_and_fetch ⭐ **Enhanced with Browser Automation**
 - **Purpose**: Search and fetch content from results
-- **Parameters**: query, limit, search_mode, **fetch_mode**, content_format
+- **Parameters**: query, limit, fetch_mode, content_format
+- **Search access**: driven by tarzi config (`search.mode` auto/apiquery/webquery)
 - **Browser**: Can use browser automation for content fetching
 - **Returns**: Search results with full content
 

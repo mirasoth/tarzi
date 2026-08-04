@@ -11,6 +11,8 @@ Quick Reference
    - ``tarzi::fetcher`` - Web page fetching
    - ``tarzi::search`` - Search engine integration
    - ``tarzi::search::parser`` - Search result parsing
+   - ``tarzi::search::access`` - Access cascade resolution
+   - ``tarzi::search::api`` - Brave / Serper API clients
 
 **Main Structs**
    - ``Converter`` - HTML conversion
@@ -18,16 +20,11 @@ Quick Reference
    - ``SearchEngine`` - Web search operations
    - ``ParserFactory`` - Parser creation and management
 
-**Base Parser Traits**
-   - ``BaseSearchParser`` - Core parser trait
-   - ``WebSearchParser`` - HTML-based parsing
-   - ``ApiSearchParser`` - JSON-based parsing
-   - ``UnifiedParser`` - Combined web and API parsing
-
 **Enums**
    - ``Format`` - Output formats (Markdown, JSON, YAML, HTML)
    - ``FetchMode`` - Fetching strategies
-   - ``SearchMode`` - Search strategies
+   - ``SearchMode`` - Search access modes (Auto, ApiQuery, WebQuery)
+   - ``AccessMethod`` - Resolved access path (Api, PlainHttp, Browser)
    - ``SearchEngineType`` - Supported search engines
 
 Basic Usage
@@ -35,8 +32,8 @@ Basic Usage
 
 .. code-block:: rust
 
-   use tarzi::{Converter, WebFetcher, SearchEngine, Format, FetchMode, SearchMode};
-   use tarzi::search::parser::{ParserFactory, SearchEngineType};
+   use tarzi::{Converter, WebFetcher, SearchEngine, Format, FetchMode};
+   use tarzi::search::{ParserFactory, SearchEngineType};
 
    #[tokio::main]
    async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -46,16 +43,21 @@ Basic Usage
 
        // Fetch web page
        let mut fetcher = WebFetcher::new();
-       let content = fetcher.fetch("https://example.com", FetchMode::PlainRequest, Format::Markdown).await?;
+       let content = fetcher.fetch(
+           "https://example.com",
+           FetchMode::PlainRequest,
+           Format::Markdown
+       ).await?;
 
-       // Search web
+       // Search web (auto cascade from config / defaults)
        let mut search_engine = SearchEngine::new();
-       let results = search_engine.search("agentic AI", SearchMode::WebQuery, 10).await?;
+       let results = search_engine.search("agentic AI", 10).await?;
 
-       // Use parser factory
+       // Parse HTML SERP content
        let factory = ParserFactory::new();
-       let parser = factory.get_parser(&SearchEngineType::Google, SearchMode::WebQuery);
-       let parsed_results = parser.parse(html_content, 10)?;
+       let parser = factory.get_parser(&SearchEngineType::Google);
+       let _parsed = parser.parse(&content, 10)?;
 
+       let _ = (markdown, results);
        Ok(())
-   } 
+   }

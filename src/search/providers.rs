@@ -1,13 +1,29 @@
-use super::types::{SearchEngineType, SearchResult};
+use super::access::{resolve_access, resolve_api_key};
+use super::api::{search_brave_api, search_serper_api};
+use super::parser::ParserFactory;
+use super::types::{AccessMethod, SearchEngineType, SearchMode, SearchResult};
 use crate::Result;
-use crate::fetcher::WebFetcher;
-use crate::search::parser::ParserFactory;
+use crate::error::TarziError;
+use crate::fetcher::{FetchMode, WebFetcher};
 use async_trait::async_trait;
+use tracing::{info, warn};
 
-/// Provider configuration for web search only
+/// Provider configuration for search
 #[derive(Debug)]
 pub struct ProviderConfig {
     pub fetcher: Box<WebFetcher>,
+    pub search_mode: SearchMode,
+    pub api_key: Option<String>,
+}
+
+impl ProviderConfig {
+    pub fn new(fetcher: WebFetcher) -> Self {
+        Self {
+            fetcher: Box::new(fetcher),
+            search_mode: SearchMode::Auto,
+            api_key: None,
+        }
+    }
 }
 
 /// Unified interface for all search providers
@@ -31,17 +47,147 @@ pub trait SearchProvider: Send + Sync {
     fn get_engine_type(&self) -> SearchEngineType;
 }
 
+/// Shared cascade used by all providers.
+async fn provider_search_cascade(
+    fetcher: &mut WebFetcher,
+    engine_type: SearchEngineType,
+    search_mode: SearchMode,
+    api_key: &Option<String>,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SearchResult>> {
+    let resolved_key = resolve_api_key(engine_type, api_key);
+    let has_key = resolved_key.is_some();
+    let methods = resolve_access(engine_type, search_mode, has_key)?;
+    let allow_fallback = matches!(search_mode, SearchMode::Auto | SearchMode::WebQuery);
+    let mut last_error: Option<TarziError> = None;
+
+    for method in methods {
+        let outcome = match method {
+            AccessMethod::Api => {
+                let key = resolved_key
+                    .as_deref()
+                    .ok_or_else(|| TarziError::Search("API key required".to_string()))?;
+                match engine_type {
+                    SearchEngineType::BraveSearch => {
+                        search_brave_api(fetcher, query, limit, key).await
+                    }
+                    SearchEngineType::GoogleSerper => {
+                        search_serper_api(fetcher, query, limit, key).await
+                    }
+                    other => Err(TarziError::Search(format!(
+                        "Engine {other:?} does not support API access"
+                    ))),
+                }
+            }
+            AccessMethod::PlainHttp => {
+                web_search(
+                    fetcher,
+                    engine_type,
+                    query,
+                    limit,
+                    FetchMode::PlainRequest,
+                    true,
+                )
+                .await
+            }
+            AccessMethod::Browser => {
+                web_search(
+                    fetcher,
+                    engine_type,
+                    query,
+                    limit,
+                    FetchMode::BrowserHeadless,
+                    false,
+                )
+                .await
+            }
+        };
+
+        match outcome {
+            Ok(results) if !results.is_empty() => {
+                info!("Provider search succeeded via {:?}", method);
+                return Ok(results);
+            }
+            Ok(_) => {
+                let msg = format!("Provider search via {method:?} returned no results");
+                warn!("{}", msg);
+                last_error = Some(TarziError::Search(msg));
+                if !allow_fallback {
+                    break;
+                }
+            }
+            Err(e) => {
+                warn!("Provider search via {:?} failed: {}", method, e);
+                last_error = Some(e);
+                if !allow_fallback {
+                    break;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        TarziError::Search("All provider search access methods failed".to_string())
+    }))
+}
+
+async fn web_search(
+    fetcher: &mut WebFetcher,
+    engine_type: SearchEngineType,
+    query: &str,
+    limit: usize,
+    fetch_mode: FetchMode,
+    use_plain_pattern: bool,
+) -> Result<Vec<SearchResult>> {
+    if !engine_type.supports_web() {
+        return Err(TarziError::Search(format!(
+            "Engine {engine_type:?} does not support web query"
+        )));
+    }
+
+    let pattern = if use_plain_pattern {
+        engine_type.plain_query_pattern()
+    } else {
+        engine_type.browser_query_pattern()
+    };
+    let search_url = pattern.replace("{query}", &urlencoding::encode(query));
+    info!("Provider web search: {}", search_url);
+
+    let content = fetcher.fetch_raw(&search_url, fetch_mode).await?;
+    let parser = ParserFactory::new().get_parser(&engine_type);
+    parser.parse(&content, limit)
+}
+
 /// Macro to generate search provider implementations
 macro_rules! impl_search_provider {
     ($provider_name:ident, $engine_type:expr) => {
         #[derive(Debug)]
         pub struct $provider_name {
             fetcher: WebFetcher,
+            search_mode: SearchMode,
+            api_key: Option<String>,
         }
 
         impl $provider_name {
             pub fn new_web(fetcher: WebFetcher) -> Self {
-                Self { fetcher }
+                Self {
+                    fetcher,
+                    search_mode: SearchMode::Auto,
+                    api_key: None,
+                }
+            }
+
+            pub fn with_options(
+                fetcher: WebFetcher,
+                search_mode: SearchMode,
+                api_key: Option<String>,
+            ) -> Self {
+                Self {
+                    fetcher,
+                    search_mode,
+                    api_key,
+                }
             }
         }
 
@@ -50,26 +196,23 @@ macro_rules! impl_search_provider {
             type Config = crate::fetcher::WebFetcher;
 
             fn new(config: Self::Config) -> Self {
-                Self { fetcher: config }
+                Self::new_web(config)
             }
 
             async fn search(&mut self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
-                let query_pattern = $engine_type.get_query_pattern();
-                let search_url = query_pattern.replace("{query}", &urlencoding::encode(query));
-                tracing::info!("{} web search: {}", stringify!($provider_name), search_url);
-
-                let search_page_content = self
-                    .fetcher
-                    .fetch_raw(&search_url, crate::fetcher::FetchMode::BrowserHeadless)
-                    .await?;
-
-                // Use the parser to extract results
-                let parser = ParserFactory::new().get_parser(&$engine_type);
-                parser.parse(&search_page_content, limit)
+                provider_search_cascade(
+                    &mut self.fetcher,
+                    $engine_type,
+                    self.search_mode,
+                    &self.api_key,
+                    query,
+                    limit,
+                )
+                .await
             }
 
             fn is_healthy(&self) -> bool {
-                true // Web provider is always available
+                true
             }
 
             fn get_engine_type(&self) -> SearchEngineType {
@@ -79,8 +222,8 @@ macro_rules! impl_search_provider {
     };
 }
 
-// Generate all provider implementations
 impl_search_provider!(GoogleSearchProvider, SearchEngineType::Google);
+impl_search_provider!(GoogleSerperProvider, SearchEngineType::GoogleSerper);
 impl_search_provider!(BingSearchProvider, SearchEngineType::Bing);
 impl_search_provider!(DuckDuckGoProvider, SearchEngineType::DuckDuckGo);
 impl_search_provider!(BraveSearchProvider, SearchEngineType::BraveSearch);
@@ -91,6 +234,7 @@ impl_search_provider!(SougouWeixinProvider, SearchEngineType::SougouWeixin);
 #[derive(Debug)]
 pub enum ProviderVariant {
     Google(GoogleSearchProvider),
+    GoogleSerper(GoogleSerperProvider),
     Bing(BingSearchProvider),
     DuckDuckGo(DuckDuckGoProvider),
     BraveSearch(BraveSearchProvider),
@@ -101,32 +245,47 @@ pub enum ProviderVariant {
 impl ProviderVariant {
     /// Create a provider variant from engine type and configuration
     pub fn from_engine_type(engine_type: SearchEngineType, config: ProviderConfig) -> Result<Self> {
-        match engine_type {
-            SearchEngineType::Google => Ok(ProviderVariant::Google(GoogleSearchProvider::new_web(
-                *config.fetcher,
-            ))),
-            SearchEngineType::Bing => Ok(ProviderVariant::Bing(BingSearchProvider::new_web(
-                *config.fetcher,
-            ))),
-            SearchEngineType::DuckDuckGo => Ok(ProviderVariant::DuckDuckGo(
-                DuckDuckGoProvider::new_web(*config.fetcher),
+        let ProviderConfig {
+            fetcher,
+            search_mode,
+            api_key,
+        } = config;
+        let fetcher = *fetcher;
+
+        Ok(match engine_type {
+            SearchEngineType::Google => ProviderVariant::Google(
+                GoogleSearchProvider::with_options(fetcher, search_mode, api_key),
+            ),
+            SearchEngineType::GoogleSerper => ProviderVariant::GoogleSerper(
+                GoogleSerperProvider::with_options(fetcher, search_mode, api_key),
+            ),
+            SearchEngineType::Bing => ProviderVariant::Bing(BingSearchProvider::with_options(
+                fetcher,
+                search_mode,
+                api_key,
             )),
-            SearchEngineType::BraveSearch => Ok(ProviderVariant::BraveSearch(
-                BraveSearchProvider::new_web(*config.fetcher),
+            SearchEngineType::DuckDuckGo => ProviderVariant::DuckDuckGo(
+                DuckDuckGoProvider::with_options(fetcher, search_mode, api_key),
+            ),
+            SearchEngineType::BraveSearch => ProviderVariant::BraveSearch(
+                BraveSearchProvider::with_options(fetcher, search_mode, api_key),
+            ),
+            SearchEngineType::Baidu => ProviderVariant::Baidu(BaiduSearchProvider::with_options(
+                fetcher,
+                search_mode,
+                api_key,
             )),
-            SearchEngineType::Baidu => Ok(ProviderVariant::Baidu(BaiduSearchProvider::new_web(
-                *config.fetcher,
-            ))),
-            SearchEngineType::SougouWeixin => Ok(ProviderVariant::SougouWeixin(
-                SougouWeixinProvider::new_web(*config.fetcher),
-            )),
-        }
+            SearchEngineType::SougouWeixin => ProviderVariant::SougouWeixin(
+                SougouWeixinProvider::with_options(fetcher, search_mode, api_key),
+            ),
+        })
     }
 
     /// Get the engine type for this provider variant
     pub fn engine_type(&self) -> SearchEngineType {
         match self {
             ProviderVariant::Google(_) => SearchEngineType::Google,
+            ProviderVariant::GoogleSerper(_) => SearchEngineType::GoogleSerper,
             ProviderVariant::Bing(_) => SearchEngineType::Bing,
             ProviderVariant::DuckDuckGo(_) => SearchEngineType::DuckDuckGo,
             ProviderVariant::BraveSearch(_) => SearchEngineType::BraveSearch,
@@ -147,6 +306,15 @@ mod tests {
         let provider = GoogleSearchProvider::new_web(fetcher);
 
         assert_eq!(provider.get_engine_type(), SearchEngineType::Google);
+        assert!(provider.is_healthy());
+    }
+
+    #[test]
+    fn test_google_serper_provider() {
+        let fetcher = WebFetcher::new();
+        let provider = GoogleSerperProvider::new_web(fetcher);
+
+        assert_eq!(provider.get_engine_type(), SearchEngineType::GoogleSerper);
         assert!(provider.is_healthy());
     }
 
@@ -188,111 +356,49 @@ mod tests {
 
     #[test]
     fn test_provider_variant_from_engine_type() {
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig {
-            fetcher: Box::new(fetcher),
-        };
-
-        // Test Google provider creation
-        let google_variant =
-            ProviderVariant::from_engine_type(SearchEngineType::Google, config).unwrap();
+        let google_variant = ProviderVariant::from_engine_type(
+            SearchEngineType::Google,
+            ProviderConfig::new(WebFetcher::new()),
+        )
+        .unwrap();
         assert_eq!(google_variant.engine_type(), SearchEngineType::Google);
 
-        // Test other engine types
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig {
-            fetcher: Box::new(fetcher),
-        };
-        let bing_variant =
-            ProviderVariant::from_engine_type(SearchEngineType::Bing, config).unwrap();
+        let serper_variant = ProviderVariant::from_engine_type(
+            SearchEngineType::GoogleSerper,
+            ProviderConfig::new(WebFetcher::new()),
+        )
+        .unwrap();
+        assert_eq!(serper_variant.engine_type(), SearchEngineType::GoogleSerper);
+
+        let bing_variant = ProviderVariant::from_engine_type(
+            SearchEngineType::Bing,
+            ProviderConfig::new(WebFetcher::new()),
+        )
+        .unwrap();
         assert_eq!(bing_variant.engine_type(), SearchEngineType::Bing);
-
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig {
-            fetcher: Box::new(fetcher),
-        };
-        let duckduckgo_variant =
-            ProviderVariant::from_engine_type(SearchEngineType::DuckDuckGo, config).unwrap();
-        assert_eq!(
-            duckduckgo_variant.engine_type(),
-            SearchEngineType::DuckDuckGo
-        );
-
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig {
-            fetcher: Box::new(fetcher),
-        };
-        let brave_variant =
-            ProviderVariant::from_engine_type(SearchEngineType::BraveSearch, config).unwrap();
-        assert_eq!(brave_variant.engine_type(), SearchEngineType::BraveSearch);
-
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig {
-            fetcher: Box::new(fetcher),
-        };
-        let baidu_variant =
-            ProviderVariant::from_engine_type(SearchEngineType::Baidu, config).unwrap();
-        assert_eq!(baidu_variant.engine_type(), SearchEngineType::Baidu);
-    }
-
-    #[test]
-    fn test_provider_variant_engine_type_matching() {
-        // Test that ProviderVariant correctly returns engine types
-        let google_provider =
-            ProviderVariant::Google(GoogleSearchProvider::new_web(WebFetcher::new()));
-        assert_eq!(google_provider.engine_type(), SearchEngineType::Google);
-
-        let bing_provider = ProviderVariant::Bing(BingSearchProvider::new_web(WebFetcher::new()));
-        assert_eq!(bing_provider.engine_type(), SearchEngineType::Bing);
-
-        let duckduckgo_provider =
-            ProviderVariant::DuckDuckGo(DuckDuckGoProvider::new_web(WebFetcher::new()));
-        assert_eq!(
-            duckduckgo_provider.engine_type(),
-            SearchEngineType::DuckDuckGo
-        );
-
-        let brave_provider =
-            ProviderVariant::BraveSearch(BraveSearchProvider::new_web(WebFetcher::new()));
-        assert_eq!(brave_provider.engine_type(), SearchEngineType::BraveSearch);
-
-        let baidu_provider =
-            ProviderVariant::Baidu(BaiduSearchProvider::new_web(WebFetcher::new()));
-        assert_eq!(baidu_provider.engine_type(), SearchEngineType::Baidu);
-    }
-
-    #[test]
-    fn test_provider_config_creation() {
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig {
-            fetcher: Box::new(fetcher),
-        };
-
-        // Test that config can be created and used
-        let _variant = ProviderVariant::from_engine_type(SearchEngineType::Google, config);
-        // This test passes if no panic occurs during creation
     }
 
     #[test]
     fn test_all_engine_types_supported() {
         let engine_types = vec![
             SearchEngineType::Google,
+            SearchEngineType::GoogleSerper,
             SearchEngineType::Bing,
             SearchEngineType::DuckDuckGo,
             SearchEngineType::BraveSearch,
             SearchEngineType::Baidu,
+            SearchEngineType::SougouWeixin,
         ];
 
         for engine_type in engine_types {
-            let config = ProviderConfig {
-                fetcher: Box::new(WebFetcher::new()),
-            };
-            let variant = ProviderVariant::from_engine_type(engine_type, config);
+            let variant = ProviderVariant::from_engine_type(
+                engine_type,
+                ProviderConfig::new(WebFetcher::new()),
+            );
             assert!(
                 variant.is_ok(),
                 "Engine type {engine_type:?} should be supported"
             );
-
             if let Ok(provider) = variant {
                 assert_eq!(provider.engine_type(), engine_type);
             }
@@ -301,16 +407,11 @@ mod tests {
 
     #[test]
     fn test_search_provider_trait_functionality() {
-        let fetcher = WebFetcher::new();
-
-        // Test SearchProvider trait through concrete implementation
-        let google_provider = GoogleSearchProvider::new(fetcher);
+        let google_provider = GoogleSearchProvider::new(WebFetcher::new());
         assert_eq!(google_provider.get_engine_type(), SearchEngineType::Google);
         assert!(google_provider.is_healthy());
 
-        // Test that provider can be created with SearchProvider::new
-        let fetcher2 = WebFetcher::new();
-        let bing_provider = BingSearchProvider::new(fetcher2);
+        let bing_provider = BingSearchProvider::new(WebFetcher::new());
         assert_eq!(bing_provider.get_engine_type(), SearchEngineType::Bing);
         assert!(bing_provider.is_healthy());
     }

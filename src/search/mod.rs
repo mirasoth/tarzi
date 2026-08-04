@@ -1,16 +1,20 @@
 //! Search module
 //!
 //! This module provides functionality for searching the web using different search engines:
-//! - Web-based search through browser automation
-//! - Support for multiple search engines (Bing, Google, DuckDuckGo, etc.)
-//! - Extensible parser system for extracting search results from HTML
+//! - API query (Brave, Google Serper) when an API key is available
+//! - Plain HTTP webquery to public search URLs
+//! - Headless browser fallback for JS-heavy SERPs
+//! - Extensible parser system for extracting search results from HTML / JSON
 
+pub mod access;
+pub mod api;
 pub mod engine;
 pub mod parser;
 pub mod providers;
 pub mod types;
 
 // Re-export main types and functions
+pub use access::{resolve_access, resolve_api_key};
 pub use engine::SearchEngine;
 pub use parser::ParserFactory;
-pub use types::{SearchEngineType, SearchResult};
+pub use types::{AccessMethod, SearchEngineType, SearchMode, SearchResult};

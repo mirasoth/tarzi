@@ -50,19 +50,16 @@ Key Features
    Fetch web pages with optional JavaScript rendering support
 
 🔍 **Search Integration**
-   Query search engines using browser mode (headless/headed/existing) or API mode
+   Access cascade: API key → plain HTTP → headless browser
 
 🎯 **Web Search Engines**
-   Support for Bing, Google, DuckDuckGo, Brave Search, and custom engines
+   Bing, Google, DuckDuckGo, Brave, Baidu, Sogou Weixin, Google Serper
 
 🚀 **API Search Providers**
-   Direct API integration with Brave Search, Exa, Travily, and DuckDuckGo
-
-🔄 **Automatic Provider Switching**
-   Smart fallback between API providers for enhanced reliability
+   Brave Search API and Google Serper (``SERPER_API_KEY`` / ``BRAVE_API_KEY``)
 
 🔒 **Proxy Support**
-   Use proxies in both browser-based and API-based operations
+   Use proxies for plain HTTP and API paths (browser proxy is limited)
 
 ⚡ **End-to-End Pipeline**
    Complete workflow from search queries to content extraction for AI applications
@@ -85,13 +82,19 @@ Python
    markdown = tarzi.convert_html("<h1>Hello</h1>", "markdown")
 
    # Fetch web page
-   content = tarzi.fetch_url("https://example.com", js=True)
+   content = tarzi.fetch_url("https://example.com", mode="browser_headless")
 
-   # Search web (browser-based)
-   results = tarzi.search_web("python programming", "webquery", 10)
+   # Search web (auto: API → plain HTTP → browser)
+   results = tarzi.search_web("python programming", 10)
 
-   # Search using API providers (requires API keys)
-   results = tarzi.search_web("machine learning", "apiquery", 10)
+   # Prefer Serper / Brave via config + env keys
+   config = tarzi.Config.from_str("""
+[search]
+engine = "google_serper"
+mode = "auto"
+""")
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("machine learning", 10)
 
 Rust
 ----
@@ -102,7 +105,7 @@ Rust
 
 .. code-block:: rust
 
-   use tarzi::{Converter, WebFetcher, SearchEngine, Format, FetchMode, SearchMode};
+   use tarzi::{config::Config, Converter, WebFetcher, SearchEngine, Format, FetchMode};
 
    #[tokio::main]
    async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -118,21 +121,16 @@ Rust
            Format::Markdown
        ).await?;
 
-       // Search web (browser-based)
+       // Search web (auto cascade)
        let mut search_engine = SearchEngine::new();
-       let results = search_engine.search(
-           "agentic AI",
-           SearchMode::WebQuery,
-           5
-       ).await?;
+       let results = search_engine.search("agentic AI", 5).await?;
 
-       // Search using API providers (requires API keys)
-       let mut api_search_engine = SearchEngine::from_config(&Config::new());
-       let api_results = api_search_engine.search(
-           "machine learning",
-           SearchMode::ApiQuery,
-           5
-       ).await?;
+       // Prefer API when configured
+       let mut config = Config::new();
+       config.search.engine = "brave".to_string();
+       config.search.mode = "auto".to_string();
+       let mut api_search_engine = SearchEngine::from_config(&config);
+       let api_results = api_search_engine.search("machine learning", 5).await?;
 
        Ok(())
    }
@@ -151,18 +149,9 @@ CLI
    # Fetch web page with JavaScript rendering
    tarzi fetch --url "https://example.com" --mode browser_headless --format json
 
-   # Search and fetch content (browser-based)
+   # Search and fetch content
    tarzi search-and-fetch \
      --query "agentic AI" \
-     --search-mode webquery \
-     --fetch-mode plain_request \
-     --format markdown \
-     --limit 5
-
-   # Search using API providers (requires API keys)
-   tarzi search-and-fetch \
-     --query "machine learning" \
-     --search-mode apiquery \
      --fetch-mode plain_request \
      --format markdown \
      --limit 5

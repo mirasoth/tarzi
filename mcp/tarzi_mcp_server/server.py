@@ -210,7 +210,9 @@ def get_config() -> str:
 - Version: {tarzi.__version__ if hasattr(tarzi, '__version__') else 'unknown'}
 - Default timeout: 30s
 - Default user agent: Tarzi Search Client
-- Available search modes: webquery, apiquery
+- Search modes: auto (API → plain HTTP → browser), apiquery, webquery
+- API keys (env): BRAVE_API_KEY, SERPER_API_KEY
+- Engines: bing, google, google_serper, brave, duckduckgo, baidu, sogou_weixin
 - Available fetch modes: plain_request, browser_headless, browser_headed
 - Supported formats: html, markdown, json, yaml
 """

@@ -8,8 +8,9 @@ Quick Reference
 
 **Core Functions**
    - :func:`tarzi.convert_html` - Convert HTML to various formats
-   - :func:`tarzi.fetch_url` - Fetch web page content
+   - :func:`tarzi.fetch` / :func:`tarzi.fetch_url` - Fetch web page content
    - :func:`tarzi.search_web` - Search the web
+   - :func:`tarzi.search_with_content` - Search and fetch result pages
 
 **Classes**
    - :class:`tarzi.Converter` - HTML conversion
@@ -19,7 +20,6 @@ Quick Reference
 
 **Data Types**
    - :class:`tarzi.SearchResult` - Search result data
-   - :class:`tarzi.TarziError` - Error types
 
 Basic Usage
 -----------
@@ -32,7 +32,7 @@ Basic Usage
    markdown = tarzi.convert_html("<h1>Hello</h1>", "markdown")
 
    # Fetch web page
-   content = tarzi.fetch_url("https://example.com")
+   content = tarzi.fetch_url("https://example.com", mode="plain_request")
 
-   # Search web
-   results = tarzi.search_web("python programming", "webquery", 10) 
+   # Search web (access mode comes from config; default auto cascade)
+   results = tarzi.search_web("python programming", 10)

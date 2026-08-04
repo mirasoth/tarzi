@@ -97,55 +97,50 @@ API Search Configuration
 
 tarzi supports multiple API search providers with automatic fallback capabilities:
 
-**Supported Providers:**
-- **Brave Search API**: Fast, privacy-focused search results
-- **Exa Search API**: AI-powered semantic search with enhanced relevance
-- **Travily API**: Specialized travel and location-based search
-- **DuckDuckGo API**: Privacy-focused search (limited functionality, no API key required)
-- **Baidu API**: Chinese search engine with API support
+**Supported API providers:**
+- **Brave Search API**: REST API with ``BRAVE_API_KEY`` (or ``search.api_key``)
+- **Google Serper**: Google results via Serper with ``SERPER_API_KEY`` (engine ``google_serper``)
+
+**Access cascade** (``search.mode = "auto"``): API key if available → plain HTTP → headless browser.
 
 **Engine Capabilities:**
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 20 20 20
+   :widths: 25 20 20 35
 
    * - Engine
      - Web Query
      - API Query
-     - API Key Required
+     - API Key
    * - Bing
      - Yes
      - No
-     - N/A
+     - N/A (Bing Search API retired)
    * - Google
      - Yes
      - No
-     - N/A
+     - N/A (use ``google_serper`` for API)
+   * - Google Serper
+     - No
+     - Yes
+     - Yes (``SERPER_API_KEY``)
    * - Brave
      - Yes
      - Yes
-     - Yes
+     - Yes for API (``BRAVE_API_KEY``)
    * - DuckDuckGo
      - Yes
-     - Yes
      - No
-   * - Exa
-     - Yes
-     - Yes
-     - Yes
-   * - Travily
-     - No
-     - Yes
-     - Yes
+     - N/A
    * - Baidu
      - Yes
+     - No
+     - N/A
+   * - Sogou Weixin
      - Yes
-     - Yes
-
-**Autoswitch Strategies:**
-- **smart**: Automatically fallback to available providers if primary fails
-- **none**: Only use the configured primary search engine
+     - No
+     - N/A
 
 **Configuration Example:**
 
@@ -153,12 +148,7 @@ tarzi supports multiple API search providers with automatic fallback capabilitie
 
    [search]
    engine = "brave"
-   mode = "apiquery"
-   autoswitch = "smart"
+   mode = "auto"          # auto | apiquery | webquery
    limit = 10
-   
-   # API keys for different providers
-   brave_api_key = "your-brave-api-key"
-   exa_api_key = "your-exa-api-key"
-   travily_api_key = "your-travily-api-key"
-   baidu_api_key = "your-baidu-api-key"
+   api_key = "your-brave-api-key"
+   # Prefer env vars: BRAVE_API_KEY / SERPER_API_KEY

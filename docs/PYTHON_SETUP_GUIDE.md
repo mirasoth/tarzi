@@ -75,7 +75,7 @@ import tarzi
 engine = tarzi.SearchEngine()
 
 # Search the web
-results = engine.search('python programming', 'webquery', 5)
+results = engine.search('python programming', 5)
 for result in results:
     print(f"{result.title}: {result.url}")
 ```
@@ -90,8 +90,9 @@ for result in results:
 
 ### Standalone Functions
 - `convert_html(html, format)` - Quick HTML conversion
-- `fetch_url(url, mode, format)` - Quick URL fetching
-- `search_web(query, mode, limit)` - Quick web search
+- `fetch` / `fetch_url(url, mode, format)` - Quick URL fetching
+- `search_web(query, limit)` - Quick web search
+- `search_with_content(query, limit, fetch_mode, format)` - Search and fetch pages
 
 ### Supported Formats
 - `html` - Raw HTML
@@ -122,7 +123,7 @@ maturin build --features pyo3 --release
 
 # Run examples
 python3 examples/basic_usage.py
-python3 examples/search_engines.py
+python3 examples/sogou_weixin_search.py
 
 # Run all tests (Rust + Python)
 make test-all
@@ -154,7 +155,7 @@ python3 -c "import sys; print(sys.path)"
 ## Next Steps
 
 1. **Run Python unit tests**: `python3 test_tarzi.py` for comprehensive testing
-2. **Try the example scripts**: `python3 examples/basic_usage.py` and `python3 examples/search_engines.py`
+2. **Try the example scripts**: `python3 examples/basic_usage.py` and `python3 examples/sogou_weixin_search.py`
 3. **Check the API documentation**: `python3 -c "import tarzi; help(tarzi.Converter)"`
 4. **Run development tests**: `python3 run_python_tests.py --verbose`
 5. **Build wheels for distribution**: `maturin build --release`

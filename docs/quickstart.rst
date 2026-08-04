@@ -37,13 +37,9 @@ Let's start with a simple example that demonstrates the core functionality:
    except Exception as e:
        print(f"Fetch failed: {e}")
 
-   # 3. Search the web (browser-based)
+   # 3. Search the web (uses config: API → plain HTTP → browser)
    try:
-       results = tarzi.search_web(
-           "python web scraping", 
-           mode="webquery", 
-           limit=3
-       )
+       results = tarzi.search_web("python web scraping", limit=3)
        print(f"\nFound {len(results)} search results:")
        for i, result in enumerate(results):
            print(f"{i+1}. {result.title}")
@@ -52,20 +48,22 @@ Let's start with a simple example that demonstrates the core functionality:
    except Exception as e:
        print(f"Search failed: {e}")
 
-   # 4. Search using API providers (requires API keys)
+   # 4. Search via Brave API when BRAVE_API_KEY / search.api_key is set
    try:
-       results = tarzi.search_web(
-           "machine learning trends", 
-           mode="apiquery", 
-           limit=3
-       )
-       print(f"\nAPI search found {len(results)} results:")
+       config = tarzi.Config.from_str("""
+[search]
+engine = "brave"
+mode = "auto"
+limit = 3
+""")
+       engine = tarzi.SearchEngine.from_config(config)
+       results = engine.search("machine learning trends", 3)
+       print(f"\nFound {len(results)} results:")
        for i, result in enumerate(results):
            print(f"{i+1}. {result.title}")
            print(f"   URL: {result.url}")
-           print(f"   Snippet: {result.snippet[:100]}...")
    except Exception as e:
-       print(f"API search failed: {e}")
+       print(f"Configured search failed: {e}")
 
 Save this as `quickstart.py` and run it:
 
@@ -80,7 +78,7 @@ Here's the equivalent Rust program:
 
 .. code-block:: rust
 
-   use tarzi::{Converter, WebFetcher, SearchEngine, Format, FetchMode, SearchMode};
+   use tarzi::{config::Config, Converter, WebFetcher, SearchEngine, Format, FetchMode};
 
    #[tokio::main]
    async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -103,13 +101,9 @@ Here's the equivalent Rust program:
            Err(e) => println!("Fetch failed: {}", e),
        }
 
-       // 3. Search the web (browser-based)
+       // 3. Search the web (auto cascade: API → plain HTTP → browser)
        let mut search_engine = SearchEngine::new();
-       match search_engine.search(
-           "agentic AI",
-           SearchMode::WebQuery,
-           3
-       ).await {
+       match search_engine.search("agentic AI", 3).await {
            Ok(results) => {
                println!("\nFound {} search results:", results.len());
                for (i, result) in results.iter().enumerate() {
@@ -121,22 +115,20 @@ Here's the equivalent Rust program:
            Err(e) => println!("Search failed: {}", e),
        }
 
-       // 4. Search using API providers (requires API keys)
-       let mut api_search_engine = SearchEngine::from_config(&Config::new());
-       match api_search_engine.search(
-           "machine learning trends",
-           SearchMode::ApiQuery,
-           3
-       ).await {
+       // 4. Prefer Brave API when a key is configured
+       let mut config = Config::new();
+       config.search.engine = "brave".to_string();
+       config.search.mode = "auto".to_string();
+       let mut api_search_engine = SearchEngine::from_config(&config);
+       match api_search_engine.search("machine learning trends", 3).await {
            Ok(results) => {
-               println!("\nAPI search found {} results:", results.len());
+               println!("\nFound {} results:", results.len());
                for (i, result) in results.iter().enumerate() {
                    println!("{}. {}", i + 1, result.title);
                    println!("   URL: {}", result.url);
-                   println!("   Snippet: {}...", &result.snippet[..100.min(result.snippet.len())]);
                }
            }
-           Err(e) => println!("API search failed: {}", e),
+           Err(e) => println!("Configured search failed: {}", e),
        }
 
        Ok(())
@@ -215,45 +207,31 @@ Different modes for fetching web content:
 Search Modes
 ~~~~~~~~~~~~
 
-Two approaches to web search:
+Configure access via ``search.mode`` in TOML (default ``auto``):
 
-- **webquery**: Scrape search engine results pages (no API key needed)
-- **apiquery**: Use official search APIs (requires API key)
+- **auto**: API (if key present) → plain HTTP → headless browser
+- **apiquery**: API only (Brave / Google Serper)
+- **webquery**: plain HTTP then browser (never uses API)
 
 API Search Providers
 ~~~~~~~~~~~~~~~~~~~~
 
-tarzi supports multiple API search providers with automatic fallback:
-
-- **Brave Search API**: Fast, privacy-focused search
-- **Google API**: Google search results via API
-- **Exa Search API**: AI-powered semantic search
-- **Travily API**: Travel-focused search engine
-- **DuckDuckGo API**: Privacy-focused search (limited functionality)
-
-Autoswitch Strategy
-~~~~~~~~~~~~~~~~~~~
-
-When using API search, tarzi can automatically switch between providers:
-
-- **smart**: Automatically fallback to available providers if primary fails
-- **none**: Only use the configured primary search engine
+- **Brave** (``brave``): ``BRAVE_API_KEY`` or ``search.api_key``
+- **Google Serper** (``google_serper``): ``SERPER_API_KEY`` or ``search.api_key``
 
 .. code-block:: python
 
-   # Browser-based search (no API key needed)
-   results = tarzi.search_web(
-       "machine learning", 
-       mode="webquery", 
-       limit=10
-   )
+   # Uses configured cascade (default auto)
+   results = tarzi.search_web("machine learning", limit=10)
 
-   # API-based search (requires API key configuration)
-   results = tarzi.search_web(
-       "artificial intelligence", 
-       mode="apiquery", 
-       limit=10
-   )
+   # Force Serper API via config
+   config = tarzi.Config.from_str("""
+[search]
+engine = "google_serper"
+mode = "apiquery"
+""")
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("artificial intelligence", 10)
 
 Configuration
 -------------
@@ -264,19 +242,15 @@ Basic configuration can be done through environment variables or a `tarzi.toml` 
 
    [search]
    engine = "brave"
-   mode = "apiquery"
-   autoswitch = "smart"
+   mode = "auto"
    limit = 5
-   
-   # API keys for different providers
-   brave_api_key = "your-brave-api-key"
-   exa_api_key = "your-exa-api-key"
-   travily_api_key = "your-travily-api-key"
+   # Prefer: export BRAVE_API_KEY=... / SERPER_API_KEY=...
+   # api_key = "your-api-key"
 
    [fetcher]
    user_agent = "Mozilla/5.0 (compatible; Tarzi/1.0)"
    timeout = 30
-   proxy = "http://proxy.example.com:8080"
+   # proxy = "http://proxy.example.com:8080"
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
@@ -286,6 +260,10 @@ Environment Variables
    # Proxy configuration (standard environment variables)
    export http_proxy=http://proxy.example.com:8080
    export https_proxy=http://proxy.example.com:8080
+
+   # Search API keys
+   export BRAVE_API_KEY=your-brave-api-key
+   export SERPER_API_KEY=your-serper-api-key
 
    # Debug mode (for development/testing)
    export TARZI_DEBUG=1

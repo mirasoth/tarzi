@@ -86,7 +86,7 @@ engine = "duckduckgo"
 
     def test_search_engine_options(self):
         """Test different search engine configuration options."""
-        engines = ["duckduckgo", "brave", "exa", "travily"]
+        engines = ["duckduckgo", "brave", "bing", "google", "google_serper", "baidu"]
 
         for engine in engines:
             config_str = f"""
@@ -102,7 +102,7 @@ engine = "{engine}"
 
     def test_fetcher_mode_options(self):
         """Test different fetcher mode configuration options."""
-        modes = ["plain_request", "browser_headless", "browser_full"]
+        modes = ["plain_request", "browser_headless", "browser_head"]
 
         for mode in modes:
             config_str = f"""
