@@ -88,11 +88,9 @@ Python
    results = tarzi.search_web("python programming", 10)
 
    # Prefer Serper / Brave via config + env keys
-   config = tarzi.Config.from_str("""
-[search]
-engine = "google_serper"
-mode = "auto"
-""")
+   config = tarzi.Config.from_str(
+       "[search]\nengine = \"google_serper\"\nmode = \"auto\"\n"
+   )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("machine learning", 10)
 

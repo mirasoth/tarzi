@@ -43,7 +43,7 @@ templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md", "PYTHON_SETUP_GUIDE.md"]
 
 # The suffix(es) of source filenames.
 source_suffix = {

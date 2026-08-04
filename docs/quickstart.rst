@@ -50,12 +50,9 @@ Let's start with a simple example that demonstrates the core functionality:
 
    # 4. Search via Brave API when BRAVE_API_KEY / search.api_key is set
    try:
-       config = tarzi.Config.from_str("""
-[search]
-engine = "brave"
-mode = "auto"
-limit = 3
-""")
+       config = tarzi.Config.from_str(
+           "[search]\nengine = \"brave\"\nmode = \"auto\"\nlimit = 3\n"
+       )
        engine = tarzi.SearchEngine.from_config(config)
        results = engine.search("machine learning trends", 3)
        print(f"\nFound {len(results)} results:")
@@ -225,11 +222,9 @@ API Search Providers
    results = tarzi.search_web("machine learning", limit=10)
 
    # Force Serper API via config
-   config = tarzi.Config.from_str("""
-[search]
-engine = "google_serper"
-mode = "apiquery"
-""")
+   config = tarzi.Config.from_str(
+       "[search]\nengine = \"google_serper\"\nmode = \"apiquery\"\n"
+   )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("artificial intelligence", 10)
 
