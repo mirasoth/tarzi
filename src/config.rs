@@ -1,11 +1,13 @@
 use crate::constants::{
     DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_LIMIT, DEFAULT_SEARCH_MODE, DEFAULT_TIMEOUT_SECS,
-    FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN, LOG_LEVEL_INFO, SEARCH_ENGINE_BING,
+    ENV_TARZI_FETCHER_FORMAT, ENV_TARZI_FETCHER_MODE, ENV_TARZI_FETCHER_TIMEOUT,
+    ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY, ENV_TARZI_QUERY_PATTERN, ENV_TARZI_SEARCH_ENGINE,
+    ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_SEARCH_MODE, ENV_TARZI_TIMEOUT, ENV_TARZI_USER_AGENT,
+    ENV_TARZI_WEB_DRIVER, ENV_TARZI_WEB_DRIVER_URL, FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN,
+    LOG_LEVEL_INFO, SEARCH_ENGINE_BING,
 };
 use crate::{Result, error::TarziError};
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -52,11 +54,12 @@ pub struct SearchConfig {
     /// Search access mode: auto | apiquery | webquery
     #[serde(default = "default_search_mode")]
     pub mode: String,
-    /// Optional API key for the configured engine (env vars take precedence)
+    /// Optional API key for the configured engine (programmatic only).
+    /// Prefer engine-specific env vars: `BRAVE_API_KEY`, `SERPER_API_KEY`.
     pub api_key: Option<String>,
 }
 
-/// CLI configuration parameters that can override config file values
+/// CLI configuration parameters that can override config values
 #[derive(Debug, Clone)]
 pub struct CliConfigParams {
     pub fetcher_format: Option<String>,
@@ -90,25 +93,85 @@ impl Config {
     }
 
     /// Load configuration with proper precedence order:
-    /// 1. CLI parameters (highest priority)
-    /// 2. tarzi.toml (project config)
+    /// 1. CLI parameters (highest priority — applied by callers via `apply_cli_params`)
+    /// 2. Environment variables (`TARZI_*` and related)
     /// 3. Default values (lowest priority)
     pub fn load() -> Result<Self> {
-        // Start with default config
         let mut config = Config::new();
-
-        // Load from project config (tarzi.toml) if it exists
-        let project_config = Self::load_dev();
-        if let Ok(project_config) = project_config {
-            config.merge(&project_config);
-        }
-
+        config.apply_env()?;
         Ok(config)
     }
 
-    /// Merge another config into this one (other config takes precedence)
+    /// Apply `TARZI_*` environment variables onto this config.
+    /// Unset variables are left unchanged. Invalid numeric values return an error.
+    pub fn apply_env(&mut self) -> Result<()> {
+        if let Ok(v) = std::env::var(ENV_TARZI_LOG_LEVEL)
+            && !v.is_empty()
+        {
+            self.general.log_level = v;
+        }
+        if let Some(v) = parse_env_u64(ENV_TARZI_TIMEOUT)? {
+            self.general.timeout = v;
+        }
+
+        if let Ok(v) = std::env::var(ENV_TARZI_FETCHER_MODE)
+            && !v.is_empty()
+        {
+            self.fetcher.mode = v;
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_FETCHER_FORMAT)
+            && !v.is_empty()
+        {
+            self.fetcher.format = v;
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_USER_AGENT)
+            && !v.is_empty()
+        {
+            self.fetcher.user_agent = v;
+        }
+        if let Some(v) = parse_env_u64(ENV_TARZI_FETCHER_TIMEOUT)? {
+            self.fetcher.timeout = v;
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_PROXY)
+            && !v.is_empty()
+        {
+            self.fetcher.proxy = Some(v);
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_WEB_DRIVER)
+            && !v.is_empty()
+        {
+            self.fetcher.web_driver = v;
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_WEB_DRIVER_URL)
+            && !v.is_empty()
+        {
+            self.fetcher.web_driver_url = Some(v);
+        }
+
+        if let Ok(v) = std::env::var(ENV_TARZI_SEARCH_ENGINE)
+            && !v.is_empty()
+        {
+            self.search.engine = v;
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_QUERY_PATTERN)
+            && !v.is_empty()
+        {
+            self.search.query_pattern = v;
+        }
+        if let Some(v) = parse_env_usize(ENV_TARZI_SEARCH_LIMIT)? {
+            self.search.limit = v;
+        }
+        if let Ok(v) = std::env::var(ENV_TARZI_SEARCH_MODE)
+            && !v.is_empty()
+        {
+            self.search.mode = v;
+        }
+
+        Ok(())
+    }
+
+    /// Merge another config into this one (other config takes precedence for non-default fields)
     pub fn merge(&mut self, other: &Config) {
-        // Merge general config
         if other.general.log_level != default_log_level() {
             self.general.log_level = other.general.log_level.clone();
         }
@@ -116,7 +179,6 @@ impl Config {
             self.general.timeout = other.general.timeout;
         }
 
-        // Merge fetcher config
         if other.fetcher.mode != default_fetch_mode() {
             self.fetcher.mode = other.fetcher.mode.clone();
         }
@@ -139,7 +201,6 @@ impl Config {
             self.fetcher.web_driver_url = other.fetcher.web_driver_url.clone();
         }
 
-        // Merge search config
         if other.search.engine != default_search_engine() {
             self.search.engine = other.search.engine.clone();
         }
@@ -169,38 +230,29 @@ impl Config {
             self.search.engine = engine.clone();
         }
     }
+}
 
-    pub fn get_dev_config_path() -> PathBuf {
-        PathBuf::from("tarzi.toml")
+fn parse_env_u64(name: &str) -> Result<Option<u64>> {
+    match std::env::var(name) {
+        Ok(v) if v.is_empty() => Ok(None),
+        Ok(v) => v.parse::<u64>().map(Some).map_err(|_| {
+            TarziError::Config(format!(
+                "Invalid {name} value '{v}': expected unsigned integer"
+            ))
+        }),
+        Err(_) => Ok(None),
     }
+}
 
-    pub fn load_dev() -> Result<Self> {
-        let config_path = Self::get_dev_config_path();
-
-        if config_path.exists() {
-            let content = fs::read_to_string(&config_path)
-                .map_err(|e| TarziError::Config(format!("Failed to read dev config file: {e}")))?;
-
-            let config: Config = toml::from_str(&content)
-                .map_err(|e| TarziError::Config(format!("Failed to parse dev config file: {e}")))?;
-
-            Ok(config)
-        } else {
-            // Return default config if file doesn't exist
-            Ok(Config::new())
-        }
-    }
-
-    pub fn save_dev(&self) -> Result<()> {
-        let config_path = Self::get_dev_config_path();
-
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| TarziError::Config(format!("Failed to serialize dev config: {e}")))?;
-
-        fs::write(&config_path, content)
-            .map_err(|e| TarziError::Config(format!("Failed to write dev config file: {e}")))?;
-
-        Ok(())
+fn parse_env_usize(name: &str) -> Result<Option<usize>> {
+    match std::env::var(name) {
+        Ok(v) if v.is_empty() => Ok(None),
+        Ok(v) => v.parse::<usize>().map(Some).map_err(|_| {
+            TarziError::Config(format!(
+                "Invalid {name} value '{v}': expected unsigned integer"
+            ))
+        }),
+        Err(_) => Ok(None),
     }
 }
 
@@ -292,10 +344,9 @@ fn default_web_driver() -> String {
 }
 
 /// Get proxy configuration with environment variable override
-/// Environment variables checked in order: HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy
+/// Environment variables checked in order: HTTPS_PROXY, HTTP_PROXY, https_proxy, http_proxy
 /// Falls back to config.proxy if no environment variables are set
 pub fn get_proxy_from_env_or_config(config_proxy: &Option<String>) -> Option<String> {
-    // Check environment variables in order of preference
     let env_vars = ["HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"];
 
     for env_var in &env_vars {
@@ -306,7 +357,6 @@ pub fn get_proxy_from_env_or_config(config_proxy: &Option<String>) -> Option<Str
         }
     }
 
-    // Fall back to config proxy
     config_proxy.clone()
 }
 
@@ -314,8 +364,15 @@ pub fn get_proxy_from_env_or_config(config_proxy: &Option<String>) -> Option<Str
 mod tests {
     use super::*;
     use crate::constants::*;
-    use std::fs;
-    use tempfile::tempdir;
+    use std::sync::Mutex;
+
+    /// Serialize env mutation across config unit tests
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_env_lock<F: FnOnce()>(f: F) {
+        let _guard = ENV_LOCK.lock().unwrap();
+        f();
+    }
 
     #[test]
     fn test_default_config() {
@@ -333,6 +390,35 @@ mod tests {
         assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
         assert_eq!(config.search.query_pattern, DEFAULT_QUERY_PATTERN);
         assert_eq!(config.search.limit, DEFAULT_SEARCH_LIMIT);
+        assert_eq!(config.search.mode, DEFAULT_SEARCH_MODE);
+        assert!(config.search.api_key.is_none());
+    }
+
+    #[test]
+    fn test_search_mode_and_api_key_from_toml() {
+        let toml_str = r#"
+[search]
+engine = "brave"
+mode = "apiquery"
+api_key = "test-brave-key"
+limit = 7
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.search.engine, SEARCH_ENGINE_BRAVE);
+        assert_eq!(config.search.mode, SEARCH_MODE_APIQUERY);
+        assert_eq!(config.search.api_key.as_deref(), Some("test-brave-key"));
+        assert_eq!(config.search.limit, 7);
+    }
+
+    #[test]
+    fn test_search_mode_defaults_to_auto() {
+        let toml_str = r#"
+[search]
+engine = "google_serper"
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.search.engine, SEARCH_ENGINE_GOOGLE_SERPER);
+        assert_eq!(config.search.mode, DEFAULT_SEARCH_MODE);
     }
 
     #[test]
@@ -346,34 +432,6 @@ mod tests {
 
         assert_eq!(parsed_config.search.limit, DEFAULT_SEARCH_LIMIT);
         assert_eq!(parsed_config.fetcher.mode, FETCHER_MODE_HEAD);
-    }
-
-    #[test]
-    fn test_config_save_and_load() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = temp_dir.path().join("test_config.toml");
-
-        // Create a test config
-        let mut config = Config::new();
-        config.search.limit = DEFAULT_SEARCH_LIMIT;
-        config.general.log_level = LOG_LEVEL_DEBUG.to_string();
-
-        // Save config to temporary file
-        let content = toml::to_string_pretty(&config).unwrap();
-        fs::write(&config_path, content).unwrap();
-
-        // Load config from file
-        let content = fs::read_to_string(&config_path).unwrap();
-        let loaded_config: Config = toml::from_str(&content).unwrap();
-
-        assert_eq!(loaded_config.search.limit, DEFAULT_SEARCH_LIMIT);
-        assert_eq!(loaded_config.general.log_level, LOG_LEVEL_DEBUG);
-    }
-
-    #[test]
-    fn test_dev_config_path() {
-        let dev_path = Config::get_dev_config_path();
-        assert_eq!(dev_path, PathBuf::from("tarzi.toml"));
     }
 
     #[test]
@@ -427,7 +485,6 @@ limit = 5
 web_driver_url = "http://localhost:9999"
 "#;
         let config: Config = toml::from_str(config_str).unwrap();
-        // Should use default for web_driver
         assert_eq!(config.fetcher.web_driver, CHROMEDRIVER);
         assert_eq!(
             config.fetcher.web_driver_url,
@@ -436,233 +493,264 @@ web_driver_url = "http://localhost:9999"
     }
 
     #[test]
-    fn test_load_actual_tarzi_toml() {
-        // Test loading the actual tarzi.toml file
-        let config = Config::load_dev();
-        assert!(
-            config.is_ok(),
-            "Failed to load tarzi.toml: {:?}",
-            config.err()
-        );
+    fn test_apply_env_overrides() {
+        with_env_lock(|| {
+            let keys = [
+                ENV_TARZI_LOG_LEVEL,
+                ENV_TARZI_TIMEOUT,
+                ENV_TARZI_FETCHER_MODE,
+                ENV_TARZI_FETCHER_FORMAT,
+                ENV_TARZI_USER_AGENT,
+                ENV_TARZI_FETCHER_TIMEOUT,
+                ENV_TARZI_PROXY,
+                ENV_TARZI_WEB_DRIVER,
+                ENV_TARZI_WEB_DRIVER_URL,
+                ENV_TARZI_SEARCH_ENGINE,
+                ENV_TARZI_QUERY_PATTERN,
+                ENV_TARZI_SEARCH_LIMIT,
+                ENV_TARZI_SEARCH_MODE,
+            ];
+            let originals: Vec<_> = keys.iter().map(|&k| (k, std::env::var(k).ok())).collect();
+            unsafe {
+                for &k in &keys {
+                    std::env::remove_var(k);
+                }
+            }
 
-        let config = config.unwrap();
+            unsafe {
+                std::env::set_var(ENV_TARZI_LOG_LEVEL, "debug");
+                std::env::set_var(ENV_TARZI_TIMEOUT, "90");
+                std::env::set_var(ENV_TARZI_FETCHER_MODE, "plain_request");
+                std::env::set_var(ENV_TARZI_FETCHER_FORMAT, "json");
+                std::env::set_var(ENV_TARZI_USER_AGENT, "EnvAgent/1.0");
+                std::env::set_var(ENV_TARZI_FETCHER_TIMEOUT, "45");
+                std::env::set_var(ENV_TARZI_PROXY, "http://env-proxy:8080");
+                std::env::set_var(ENV_TARZI_WEB_DRIVER, "geckodriver");
+                std::env::set_var(ENV_TARZI_WEB_DRIVER_URL, "http://localhost:4444");
+                std::env::set_var(ENV_TARZI_SEARCH_ENGINE, "brave");
+                std::env::set_var(ENV_TARZI_QUERY_PATTERN, "https://example.com?q={query}");
+                std::env::set_var(ENV_TARZI_SEARCH_LIMIT, "12");
+                std::env::set_var(ENV_TARZI_SEARCH_MODE, "apiquery");
+            }
 
-        // Verify the structure matches our expectations
-        assert_eq!(config.general.log_level, LOG_LEVEL_INFO);
-        assert_eq!(config.general.timeout, DEFAULT_TIMEOUT_SECS);
-        assert_eq!(config.fetcher.mode, FETCHER_MODE_BROWSER_HEADLESS);
-        assert_eq!(config.fetcher.format, FORMAT_MARKDOWN);
-        assert_eq!(
-            config.fetcher.user_agent,
-            crate::constants::DEFAULT_USER_AGENT
-        );
-        assert_eq!(config.fetcher.timeout, 30);
-        // Proxy should be None by default (commented out in tarzi.toml)
-        assert_eq!(config.fetcher.proxy, None);
-        assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
-        assert_eq!(config.search.query_pattern, DEFAULT_QUERY_PATTERN);
-        assert_eq!(config.search.limit, DEFAULT_SEARCH_LIMIT);
+            let config = Config::load().unwrap();
+
+            assert_eq!(config.general.log_level, "debug");
+            assert_eq!(config.general.timeout, 90);
+            assert_eq!(config.fetcher.mode, "plain_request");
+            assert_eq!(config.fetcher.format, "json");
+            assert_eq!(config.fetcher.user_agent, "EnvAgent/1.0");
+            assert_eq!(config.fetcher.timeout, 45);
+            assert_eq!(
+                config.fetcher.proxy,
+                Some("http://env-proxy:8080".to_string())
+            );
+            assert_eq!(config.fetcher.web_driver, "geckodriver");
+            assert_eq!(
+                config.fetcher.web_driver_url,
+                Some("http://localhost:4444".to_string())
+            );
+            assert_eq!(config.search.engine, "brave");
+            assert_eq!(config.search.query_pattern, "https://example.com?q={query}");
+            assert_eq!(config.search.limit, 12);
+            assert_eq!(config.search.mode, "apiquery");
+            assert!(config.search.api_key.is_none());
+
+            unsafe {
+                for &k in &keys {
+                    std::env::remove_var(k);
+                }
+                for (k, v) in originals {
+                    if let Some(val) = v {
+                        std::env::set_var(k, val);
+                    }
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_apply_env_invalid_number() {
+        with_env_lock(|| {
+            let original = std::env::var(ENV_TARZI_SEARCH_LIMIT).ok();
+            unsafe {
+                std::env::set_var(ENV_TARZI_SEARCH_LIMIT, "not-a-number");
+            }
+
+            let result = Config::load();
+            assert!(result.is_err());
+
+            unsafe {
+                std::env::remove_var(ENV_TARZI_SEARCH_LIMIT);
+                if let Some(val) = original {
+                    std::env::set_var(ENV_TARZI_SEARCH_LIMIT, val);
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_load_defaults_without_env() {
+        with_env_lock(|| {
+            let keys = [
+                ENV_TARZI_LOG_LEVEL,
+                ENV_TARZI_TIMEOUT,
+                ENV_TARZI_FETCHER_MODE,
+                ENV_TARZI_FETCHER_FORMAT,
+                ENV_TARZI_USER_AGENT,
+                ENV_TARZI_FETCHER_TIMEOUT,
+                ENV_TARZI_PROXY,
+                ENV_TARZI_WEB_DRIVER,
+                ENV_TARZI_WEB_DRIVER_URL,
+                ENV_TARZI_SEARCH_ENGINE,
+                ENV_TARZI_QUERY_PATTERN,
+                ENV_TARZI_SEARCH_LIMIT,
+                ENV_TARZI_SEARCH_MODE,
+            ];
+            let originals: Vec<_> = keys.iter().map(|&k| (k, std::env::var(k).ok())).collect();
+            unsafe {
+                for &k in &keys {
+                    std::env::remove_var(k);
+                }
+            }
+
+            let config = Config::load().unwrap();
+            assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
+            assert_eq!(config.search.mode, DEFAULT_SEARCH_MODE);
+            assert!(config.fetcher.proxy.is_none());
+            assert!(config.search.api_key.is_none());
+
+            unsafe {
+                for (k, v) in originals {
+                    if let Some(val) = v {
+                        std::env::set_var(k, val);
+                    }
+                }
+            }
+        });
     }
 
     #[test]
     fn test_get_proxy_from_env_or_config() {
-        use std::sync::Mutex;
+        with_env_lock(|| {
+            let original_http_proxy = std::env::var("HTTP_PROXY").ok();
+            let original_https_proxy = std::env::var("HTTPS_PROXY").ok();
+            let original_http_proxy_lower = std::env::var("http_proxy").ok();
+            let original_https_proxy_lower = std::env::var("https_proxy").ok();
 
-        // Use a static mutex to serialize access to environment variables across tests
-        static ENV_LOCK: Mutex<()> = Mutex::new(());
-        let _guard = ENV_LOCK.lock().unwrap();
-
-        // Store original environment variables
-        let original_http_proxy = std::env::var("HTTP_PROXY").ok();
-        let original_https_proxy = std::env::var("HTTPS_PROXY").ok();
-        let original_http_proxy_lower = std::env::var("http_proxy").ok();
-        let original_https_proxy_lower = std::env::var("https_proxy").ok();
-
-        // Clean up any existing environment variables first
-        unsafe {
-            std::env::remove_var("HTTP_PROXY");
-            std::env::remove_var("HTTPS_PROXY");
-            std::env::remove_var("http_proxy");
-            std::env::remove_var("https_proxy");
-        }
-
-        // Test with no environment variables and no config proxy
-        let result = get_proxy_from_env_or_config(&None);
-        assert_eq!(result, None);
-
-        // Test with config proxy but no environment variables
-        let config_proxy = Some("http://config-proxy:8080".to_string());
-        let result = get_proxy_from_env_or_config(&config_proxy);
-        assert_eq!(result, config_proxy);
-
-        // Test with environment variable (HTTP_PROXY)
-        unsafe {
-            std::env::set_var("HTTP_PROXY", "http://env-proxy:8080");
-        }
-        let result = get_proxy_from_env_or_config(&config_proxy);
-        assert_eq!(result, Some("http://env-proxy:8080".to_string()));
-
-        // Test with HTTPS_PROXY (should take precedence over HTTP_PROXY)
-        unsafe {
-            std::env::set_var("HTTPS_PROXY", "http://https-proxy:8080");
-        }
-        let result = get_proxy_from_env_or_config(&config_proxy);
-        assert_eq!(result, Some("http://https-proxy:8080".to_string()));
-
-        // Test with lowercase environment variable (remove uppercase first)
-        unsafe {
-            std::env::remove_var("HTTP_PROXY");
-            std::env::remove_var("HTTPS_PROXY");
-            std::env::set_var("http_proxy", "http://lowercase-proxy:8080");
-        }
-        let result = get_proxy_from_env_or_config(&config_proxy);
-        assert_eq!(result, Some("http://lowercase-proxy:8080".to_string()));
-
-        // Clean up and restore original environment variables
-        unsafe {
-            std::env::remove_var("HTTP_PROXY");
-            std::env::remove_var("HTTPS_PROXY");
-            std::env::remove_var("http_proxy");
-            std::env::remove_var("https_proxy");
-
-            // Restore original values
-            if let Some(val) = original_http_proxy {
-                std::env::set_var("HTTP_PROXY", val);
+            unsafe {
+                std::env::remove_var("HTTP_PROXY");
+                std::env::remove_var("HTTPS_PROXY");
+                std::env::remove_var("http_proxy");
+                std::env::remove_var("https_proxy");
             }
-            if let Some(val) = original_https_proxy {
-                std::env::set_var("HTTPS_PROXY", val);
+
+            let result = get_proxy_from_env_or_config(&None);
+            assert_eq!(result, None);
+
+            let config_proxy = Some("http://config-proxy:8080".to_string());
+            let result = get_proxy_from_env_or_config(&config_proxy);
+            assert_eq!(result, config_proxy);
+
+            unsafe {
+                std::env::set_var("HTTP_PROXY", "http://env-proxy:8080");
             }
-            if let Some(val) = original_http_proxy_lower {
-                std::env::set_var("http_proxy", val);
+            let result = get_proxy_from_env_or_config(&config_proxy);
+            assert_eq!(result, Some("http://env-proxy:8080".to_string()));
+
+            unsafe {
+                std::env::set_var("HTTPS_PROXY", "http://https-proxy:8080");
             }
-            if let Some(val) = original_https_proxy_lower {
-                std::env::set_var("https_proxy", val);
+            let result = get_proxy_from_env_or_config(&config_proxy);
+            assert_eq!(result, Some("http://https-proxy:8080".to_string()));
+
+            unsafe {
+                std::env::remove_var("HTTP_PROXY");
+                std::env::remove_var("HTTPS_PROXY");
+                std::env::set_var("http_proxy", "http://lowercase-proxy:8080");
             }
-        }
+            let result = get_proxy_from_env_or_config(&config_proxy);
+            assert_eq!(result, Some("http://lowercase-proxy:8080".to_string()));
+
+            unsafe {
+                std::env::remove_var("HTTP_PROXY");
+                std::env::remove_var("HTTPS_PROXY");
+                std::env::remove_var("http_proxy");
+                std::env::remove_var("https_proxy");
+
+                if let Some(val) = original_http_proxy {
+                    std::env::set_var("HTTP_PROXY", val);
+                }
+                if let Some(val) = original_https_proxy {
+                    std::env::set_var("HTTPS_PROXY", val);
+                }
+                if let Some(val) = original_http_proxy_lower {
+                    std::env::set_var("http_proxy", val);
+                }
+                if let Some(val) = original_https_proxy_lower {
+                    std::env::set_var("https_proxy", val);
+                }
+            }
+        });
     }
 
     #[test]
     fn test_get_proxy_from_env_or_config_empty_env() {
-        use std::sync::Mutex;
+        with_env_lock(|| {
+            let original_http_proxy = std::env::var("HTTP_PROXY").ok();
+            let original_https_proxy = std::env::var("HTTPS_PROXY").ok();
+            let original_http_proxy_lower = std::env::var("http_proxy").ok();
+            let original_https_proxy_lower = std::env::var("https_proxy").ok();
 
-        // Use a static mutex to serialize access to environment variables across tests
-        static ENV_LOCK: Mutex<()> = Mutex::new(());
-        let _guard = ENV_LOCK.lock().unwrap();
-
-        // Store original environment variables
-        let original_http_proxy = std::env::var("HTTP_PROXY").ok();
-        let original_https_proxy = std::env::var("HTTPS_PROXY").ok();
-        let original_http_proxy_lower = std::env::var("http_proxy").ok();
-        let original_https_proxy_lower = std::env::var("https_proxy").ok();
-
-        // Clean up any existing environment variables first
-        unsafe {
-            std::env::remove_var("HTTP_PROXY");
-            std::env::remove_var("HTTPS_PROXY");
-            std::env::remove_var("http_proxy");
-            std::env::remove_var("https_proxy");
-        }
-
-        // Test with empty environment variable (should fall back to config)
-        // Clear all proxy environment variables first
-        unsafe {
-            std::env::remove_var("HTTP_PROXY");
-            std::env::remove_var("HTTPS_PROXY");
-            std::env::remove_var("http_proxy");
-            std::env::remove_var("https_proxy");
-            // Set one to empty to test empty value handling
-            std::env::set_var("HTTP_PROXY", "");
-        }
-        let config_proxy = Some("http://config-proxy:8080".to_string());
-        let result = get_proxy_from_env_or_config(&config_proxy);
-        assert_eq!(result, config_proxy);
-
-        // Clean up and restore original environment variables
-        unsafe {
-            std::env::remove_var("HTTP_PROXY");
-            std::env::remove_var("HTTPS_PROXY");
-            std::env::remove_var("http_proxy");
-            std::env::remove_var("https_proxy");
-
-            // Restore original values
-            if let Some(val) = original_http_proxy {
-                std::env::set_var("HTTP_PROXY", val);
+            unsafe {
+                std::env::remove_var("HTTP_PROXY");
+                std::env::remove_var("HTTPS_PROXY");
+                std::env::remove_var("http_proxy");
+                std::env::remove_var("https_proxy");
+                std::env::set_var("HTTP_PROXY", "");
             }
-            if let Some(val) = original_https_proxy {
-                std::env::set_var("HTTPS_PROXY", val);
+            let config_proxy = Some("http://config-proxy:8080".to_string());
+            let result = get_proxy_from_env_or_config(&config_proxy);
+            assert_eq!(result, config_proxy);
+
+            unsafe {
+                std::env::remove_var("HTTP_PROXY");
+                std::env::remove_var("HTTPS_PROXY");
+                std::env::remove_var("http_proxy");
+                std::env::remove_var("https_proxy");
+
+                if let Some(val) = original_http_proxy {
+                    std::env::set_var("HTTP_PROXY", val);
+                }
+                if let Some(val) = original_https_proxy {
+                    std::env::set_var("HTTPS_PROXY", val);
+                }
+                if let Some(val) = original_http_proxy_lower {
+                    std::env::set_var("http_proxy", val);
+                }
+                if let Some(val) = original_https_proxy_lower {
+                    std::env::set_var("https_proxy", val);
+                }
             }
-            if let Some(val) = original_http_proxy_lower {
-                std::env::set_var("http_proxy", val);
-            }
-            if let Some(val) = original_https_proxy_lower {
-                std::env::set_var("https_proxy", val);
-            }
-        }
-    }
-
-    #[test]
-    fn test_config_loading_precedence() {
-        use std::fs;
-        use tempfile::tempdir;
-
-        let temp_dir = tempdir().unwrap();
-        let project_config_path = temp_dir.path().join("tarzi.toml");
-
-        // Create project config
-        let project_config_str = r#"
-[general]
-log_level = "debug"
-timeout = 60
-
-[fetcher]
-mode = "browser_headless"
-format = "markdown"
-timeout = 30
-
-[search]
-engine = "bing"
-limit = 10
-"#;
-        fs::write(&project_config_path, project_config_str).unwrap();
-
-        // Test loading the config directly from the file
-        let content = fs::read_to_string(&project_config_path).unwrap();
-        let project_config: Config = toml::from_str(&content).unwrap();
-
-        // Start with default config and merge project config
-        let mut config = Config::new();
-        config.merge(&project_config);
-
-        // Project config should override defaults
-        assert_eq!(config.general.log_level, "debug"); // from project config
-        assert_eq!(config.general.timeout, 60); // from project config
-        assert_eq!(config.fetcher.mode, FETCHER_MODE_BROWSER_HEADLESS); // from project config
-        assert_eq!(config.fetcher.format, FORMAT_MARKDOWN); // from project config
-        assert_eq!(config.fetcher.timeout, 30); // from project config
-        assert_eq!(config.search.engine, SEARCH_ENGINE_BING); // from project config
-        assert_eq!(config.search.limit, 10); // from project config
+        });
     }
 
     #[test]
     fn test_cli_params_override() {
         let mut config = Config::new();
 
-        // Set some default values
         config.fetcher.mode = FETCHER_MODE_BROWSER_HEADLESS.to_string();
         config.fetcher.format = FORMAT_MARKDOWN.to_string();
         config.search.limit = DEFAULT_SEARCH_LIMIT;
         config.search.engine = SEARCH_ENGINE_BING.to_string();
 
-        // Create CLI parameters
         let mut cli_params = CliConfigParams::new();
         cli_params.fetcher_format = Some(FORMAT_JSON.to_string());
         cli_params.search_limit = Some(DEFAULT_SEARCH_LIMIT);
         cli_params.search_engine = Some(SEARCH_ENGINE_GOOGLE.to_string());
 
-        // Apply CLI parameters
         config.apply_cli_params(&cli_params);
 
-        // CLI parameters should override config values
         assert_eq!(config.fetcher.mode, FETCHER_MODE_BROWSER_HEADLESS);
         assert_eq!(config.fetcher.format, FORMAT_JSON);
         assert_eq!(config.search.limit, DEFAULT_SEARCH_LIMIT);
@@ -670,10 +758,44 @@ limit = 10
     }
 
     #[test]
+    fn test_cli_overrides_env() {
+        with_env_lock(|| {
+            let original_engine = std::env::var(ENV_TARZI_SEARCH_ENGINE).ok();
+            let original_format = std::env::var(ENV_TARZI_FETCHER_FORMAT).ok();
+            unsafe {
+                std::env::set_var(ENV_TARZI_SEARCH_ENGINE, "brave");
+                std::env::set_var(ENV_TARZI_FETCHER_FORMAT, "html");
+            }
+
+            let mut config = Config::load().unwrap();
+            assert_eq!(config.search.engine, "brave");
+            assert_eq!(config.fetcher.format, "html");
+
+            let mut cli_params = CliConfigParams::new();
+            cli_params.search_engine = Some(SEARCH_ENGINE_GOOGLE.to_string());
+            cli_params.fetcher_format = Some(FORMAT_JSON.to_string());
+            config.apply_cli_params(&cli_params);
+
+            assert_eq!(config.search.engine, SEARCH_ENGINE_GOOGLE);
+            assert_eq!(config.fetcher.format, FORMAT_JSON);
+
+            unsafe {
+                std::env::remove_var(ENV_TARZI_SEARCH_ENGINE);
+                std::env::remove_var(ENV_TARZI_FETCHER_FORMAT);
+                if let Some(val) = original_engine {
+                    std::env::set_var(ENV_TARZI_SEARCH_ENGINE, val);
+                }
+                if let Some(val) = original_format {
+                    std::env::set_var(ENV_TARZI_FETCHER_FORMAT, val);
+                }
+            }
+        });
+    }
+
+    #[test]
     fn test_config_merge() {
         let mut base_config = Config::new();
 
-        // Set some base values
         base_config.general.log_level = LOG_LEVEL_INFO.to_string();
         base_config.fetcher.mode = FETCHER_MODE_BROWSER_HEADLESS.to_string();
         base_config.search.engine = SEARCH_ENGINE_BING.to_string();
@@ -701,10 +823,8 @@ limit = 10
             },
         };
 
-        // Merge override config into base config
         base_config.merge(&override_config);
 
-        // Override config values should take precedence
         assert_eq!(base_config.general.log_level, LOG_LEVEL_DEBUG);
         assert_eq!(base_config.general.timeout, 60);
         assert_eq!(base_config.fetcher.mode, FETCHER_MODE_PLAIN_REQUEST);

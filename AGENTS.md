@@ -21,7 +21,7 @@ tarzi/
 ├── Makefile                    # Build automation
 ├── Cargo.toml                  # Rust dependencies
 ├── pyproject.toml              # Python packaging
-└── tarzi.toml                  # Application configuration
+└── .env.example                # Environment configuration template
 ```
 
 ## General Considerations

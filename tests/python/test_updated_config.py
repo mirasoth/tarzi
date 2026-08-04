@@ -86,7 +86,16 @@ engine = "duckduckgo"
 
     def test_search_engine_options(self):
         """Test different search engine configuration options."""
-        engines = ["duckduckgo", "brave", "bing", "google", "google_serper", "baidu"]
+        engines = [
+            "duckduckgo",
+            "brave",
+            "bing",
+            "google",
+            "google_serper",
+            "serper",
+            "baidu",
+            "sogou_weixin",
+        ]
 
         for engine in engines:
             config_str = f"""
@@ -97,6 +106,21 @@ engine = "{engine}"
             assert isinstance(config, tarzi.Config)
 
             # Should be able to create search engine
+            search_engine = tarzi.SearchEngine.from_config(config)
+            assert isinstance(search_engine, tarzi.SearchEngine)
+
+    def test_search_mode_options(self):
+        """Test different search access mode configuration options."""
+        modes = ["auto", "apiquery", "webquery"]
+
+        for mode in modes:
+            config_str = f"""
+[search]
+engine = "brave"
+mode = "{mode}"
+"""
+            config = tarzi.Config.from_str(config_str)
+            assert isinstance(config, tarzi.Config)
             search_engine = tarzi.SearchEngine.from_config(config)
             assert isinstance(search_engine, tarzi.SearchEngine)
 

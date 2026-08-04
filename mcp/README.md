@@ -118,9 +118,16 @@ Search the web using Tarzi search engines.
 - `limit` (integer, default: 10): Maximum results to return
 
 **Search access cascade** (configured via tarzi `search.mode`, default `auto`):
-1. **apiquery** when an API key is available (`BRAVE_API_KEY`, `SERPER_API_KEY`, or `search.api_key`)
+1. **API** when an API key is available (`BRAVE_API_KEY` or `SERPER_API_KEY`)
 2. **plain HTTP** to the engine public search URL
 3. **headless browser** as last resort
+
+Modes: `auto` | `apiquery` | `webquery`. Set via env, for example:
+
+```bash
+export TARZI_SEARCH_ENGINE=brave
+export TARZI_SEARCH_MODE=auto
+```
 
 Supported engines include `bing`, `google`, `google_serper` (alias `serper`), `brave`, `duckduckgo`, `baidu`, `sogou_weixin`.
 
@@ -249,8 +256,11 @@ docker-compose --profile debug up
 
 Core variables:
 - `PYTHONUNBUFFERED=1`: Disable Python output buffering
-- `TARZI_TIMEOUT`: Override default timeout
+- `TARZI_TIMEOUT`: Override general timeout
 - `TARZI_USER_AGENT`: Override default user agent
+- `TARZI_SEARCH_ENGINE` / `TARZI_SEARCH_MODE` / `TARZI_FETCHER_*`: See `.env.example`
+- `BRAVE_API_KEY` / `SERPER_API_KEY`: Engine API keys
+- `HTTP_PROXY` / `HTTPS_PROXY`: Proxy (wins over `TARZI_PROXY`)
 
 Browser variables (automatically configured by tarzi):
 - `MOZ_HEADLESS=1`: Enable headless mode

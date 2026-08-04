@@ -87,7 +87,7 @@ async fn main() -> Result<()> {
             println!("To fix this:");
             println!("1. Install ChromeDriver: https://chromedriver.chromium.org/");
             println!("2. Or install GeckoDriver: https://github.com/mozilla/geckodriver/releases");
-            println!("3. Or configure web_driver_url in your tarzi.toml file");
+            println!("3. Or set TARZI_WEB_DRIVER_URL for an external WebDriver server");
         }
     }
 

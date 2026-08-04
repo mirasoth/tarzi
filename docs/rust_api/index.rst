@@ -26,6 +26,7 @@ Quick Reference
    - ``SearchMode`` - Search access modes (Auto, ApiQuery, WebQuery)
    - ``AccessMethod`` - Resolved access path (Api, PlainHttp, Browser)
    - ``SearchEngineType`` - Supported search engines
+     (Bing, DuckDuckGo, Google, GoogleSerper, BraveSearch, Baidu, SougouWeixin)
 
 Basic Usage
 -----------
@@ -61,3 +62,40 @@ Basic Usage
        let _ = (markdown, results);
        Ok(())
    }
+
+Search Engines and Modes
+------------------------
+
+Configure ``Config.search.engine`` and ``Config.search.mode``
+(``auto`` | ``apiquery`` | ``webquery``). Defaults: Bing + ``auto``.
+
+.. code-block:: rust
+
+   use tarzi::{config::Config, search::SearchEngine};
+
+   #[tokio::main]
+   async fn main() -> Result<(), Box<dyn std::error::Error>> {
+       // Brave: API when BRAVE_API_KEY is set, else web cascade
+       let mut config = Config::new();
+       config.search.engine = "brave".to_string();
+       config.search.mode = "auto".to_string();
+       let mut engine = SearchEngine::from_config(&config);
+       let _ = engine.search("rust ownership", 5).await?;
+
+       // Google via Serper (API-only)
+       config.search.engine = "google_serper".to_string();
+       config.search.mode = "apiquery".to_string();
+       let mut serper = SearchEngine::from_config(&config);
+       let _ = serper.search("tokio runtime", 5).await?;
+
+       // Force web path
+       config.search.engine = "duckduckgo".to_string();
+       config.search.mode = "webquery".to_string();
+       let mut web = SearchEngine::from_config(&config);
+       let _ = web.search("cargo workspace", 5).await?;
+
+       Ok(())
+   }
+
+Resolve the cascade without searching via ``tarzi::search::resolve_access``.
+See :doc:`/configuration` and :doc:`/examples/api_search`.

@@ -1,38 +1,99 @@
 Configuration
 =============
 
-tarzi can be configured through configuration files, environment variables, and programmatic configuration.
+.. important::
+   **Breaking change:** File-based configuration (``tarzi.toml``, ``~/.tarzi.toml``,
+   and ``Config.from_file`` / ``Config::from_file``) has been **removed**.
+   Configure tarzi with environment variables, CLI flags, or programmatic
+   ``Config`` construction (``Config::load()``, field assignment, or Python
+   ``Config.from_str``). See `.env.example <https://github.com/mirasoth/tarzi/blob/main/.env.example>`_.
 
-.. note::
-   tarzi supports only Linux and macOS. Windows is not supported.
+tarzi supports only Linux and macOS. Windows is not supported.
 
-Configuration File
-------------------
+Configuration Precedence
+------------------------
 
-tarzi reads configuration from the following sources in order of precedence (highest to lowest):
+Configuration values are applied in the following order (highest to lowest priority):
 
-1. **CLI parameters** (highest priority)
-2. **~/.tarzi.toml** (user home directory)
-3. **tarzi.toml** (current project root)
-4. **Default values** (lowest priority)
-
-You can refer to `tarzi.toml <https://github.com/mirasoth/tarzi/blob/main/tarzi.toml>`_ for the default values.
+1. **CLI parameters** (command line arguments)
+2. **Environment variables** (``TARZI_*``, plus proxy and search API keys)
+3. **Default values** (hardcoded defaults)
 
 **Note**: The Python CLI is available as `pytarzi` command, while the Rust CLI remains as `tarzi` command.
 
 Environment Variables
 ---------------------
 
-Currently supported environment variables:
+Tarzi-specific settings use the ``TARZI_`` prefix. Proxy and engine API keys keep their standard names.
+Tarzi has **no** product API key; use engine keys only (``BRAVE_API_KEY``, ``SERPER_API_KEY``).
 
 .. code-block:: bash
 
-   # Proxy configuration (standard environment variables)
-   export http_proxy=http://proxy.example.com:8080
-   export https_proxy=http://proxy.example.com:8080
+   # Proxy (standard environment variables; win over TARZI_PROXY at use time)
+   export HTTPS_PROXY=http://proxy.example.com:8080
+   export HTTP_PROXY=http://proxy.example.com:8080
 
-   # Debug mode (for development/testing)
-   export TARZI_DEBUG=1
+   # Search API keys (engine-specific)
+   export BRAVE_API_KEY=your-brave-api-key
+   export SERPER_API_KEY=your-serper-api-key
+
+   # Tarzi settings
+   export TARZI_SEARCH_ENGINE=brave
+   export TARZI_SEARCH_MODE=auto
+   export TARZI_SEARCH_LIMIT=10
+   export TARZI_FETCHER_MODE=browser_headless
+   export TARZI_FETCHER_FORMAT=markdown
+   export TARZI_USER_AGENT="Mozilla/5.0 ..."
+   export TARZI_FETCHER_TIMEOUT=30
+   export TARZI_PROXY=http://127.0.0.1:7890
+   export TARZI_WEB_DRIVER=chromedriver
+   export TARZI_WEB_DRIVER_URL=http://localhost:4444
+   export TARZI_LOG_LEVEL=info
+   export TARZI_TIMEOUT=30
+   export TARZI_QUERY_PATTERN=https://example.com/search?q={query}
+
+``Config::load()`` / ``tarzi.Config.load()`` apply ``TARZI_*`` over defaults.
+``HTTP(S)_PROXY``, ``BRAVE_API_KEY``, and ``SERPER_API_KEY`` are resolved at use time and still take precedence over values stored on the config object.
+
+Migrating from ``tarzi.toml``
+----------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Old (file)
+     - New (environment)
+   * - ``[search] engine``
+     - ``TARZI_SEARCH_ENGINE``
+   * - ``[search] mode``
+     - ``TARZI_SEARCH_MODE``
+   * - ``[search] limit``
+     - ``TARZI_SEARCH_LIMIT``
+   * - ``[search] query_pattern``
+     - ``TARZI_QUERY_PATTERN``
+   * - ``[search] api_key``
+     - ``BRAVE_API_KEY`` / ``SERPER_API_KEY``
+   * - ``[fetcher] mode``
+     - ``TARZI_FETCHER_MODE``
+   * - ``[fetcher] format``
+     - ``TARZI_FETCHER_FORMAT``
+   * - ``[fetcher] user_agent``
+     - ``TARZI_USER_AGENT``
+   * - ``[fetcher] timeout``
+     - ``TARZI_FETCHER_TIMEOUT``
+   * - ``[fetcher] proxy``
+     - ``TARZI_PROXY`` or ``HTTP(S)_PROXY``
+   * - ``[fetcher] web_driver``
+     - ``TARZI_WEB_DRIVER``
+   * - ``[fetcher] web_driver_url``
+     - ``TARZI_WEB_DRIVER_URL``
+   * - ``[general] log_level``
+     - ``TARZI_LOG_LEVEL``
+   * - ``[general] timeout``
+     - ``TARZI_TIMEOUT``
+
+Delete any project ``tarzi.toml`` / ``~/.tarzi.toml``; they are ignored.
 
 Programmatic Configuration
 --------------------------
@@ -44,14 +105,19 @@ Python
 
    import tarzi
 
-   # Load from file
-   config = tarzi.Config.from_file("tarzi.toml")
+   # Load from environment + defaults
+   config = tarzi.Config.load()
 
-   # Create from string
+   # Or create from TOML string (in-memory only; not a config file path)
    config_str = """
    [fetcher]
    timeout = 60
    format = "json"
+
+   [search]
+   engine = "brave"
+   mode = "auto"
+   limit = 5
    """
    config = tarzi.Config.from_str(config_str)
 
@@ -64,91 +130,95 @@ Rust
 
 .. code-block:: rust
 
-   use tarzi::{Config, WebFetcher, SearchEngine};
+   use tarzi::{config::Config, WebFetcher, SearchEngine};
 
-   // Load from file
-   let config = Config::from_file("tarzi.toml")?;
+   // Load from environment + defaults
+   let config = Config::load()?;
 
-   // Create programmatically
+   // Or create programmatically
    let mut config = Config::default();
    config.fetcher.timeout = 60;
-   config.fetcher.format = Format::Json;
+   config.search.engine = "brave".to_string();
+   config.search.mode = "auto".to_string();
 
    // Use with components
    let fetcher = WebFetcher::from_config(&config);
    let search_engine = SearchEngine::from_config(&config);
 
-Configuration Precedence
--------------------------
-
-Configuration values are applied in the following order (highest to lowest priority):
-
-1. **CLI parameters** (command line arguments)
-2. **Environment variables** (limited support - see above)
-3. **~/.tarzi.toml** (user configuration file)
-4. **tarzi.toml** (project configuration file)
-5. **Default values** (hardcoded defaults)
-
-**Note**: Environment variables currently only override proxy settings and API keys. 
-All other configuration must be set via TOML file, CLI parameters, or programmatically.
-
-API Search Configuration
+Search Engines and Modes
 ------------------------
 
-tarzi supports multiple API search providers with automatic fallback capabilities:
+``search.engine`` / ``TARZI_SEARCH_ENGINE`` selects the provider.
+``search.mode`` / ``TARZI_SEARCH_MODE`` controls how tarzi reaches it.
 
-**Supported API providers:**
-- **Brave Search API**: REST API with ``BRAVE_API_KEY`` (or ``search.api_key``)
-- **Google Serper**: Google results via Serper with ``SERPER_API_KEY`` (engine ``google_serper``)
+**Access modes** (default ``auto``):
 
-**Access cascade** (``search.mode = "auto"``): API key if available → plain HTTP → headless browser.
+- **auto** — API (if supported and a key is available) → plain HTTP → headless browser
+- **apiquery** — API only (errors if the engine has no API or the key is missing)
+- **webquery** — plain HTTP then browser (never uses API)
 
-**Engine Capabilities:**
+**Supported engines:**
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 20 20 35
+   :widths: 22 18 18 42
 
-   * - Engine
+   * - Engine id
      - Web Query
      - API Query
      - API Key
-   * - Bing
+   * - ``bing``
      - Yes
      - No
      - N/A (Bing Search API retired)
-   * - Google
+   * - ``google``
      - Yes
      - No
      - N/A (use ``google_serper`` for API)
-   * - Google Serper
+   * - ``google_serper`` / ``serper``
      - No
      - Yes
      - Yes (``SERPER_API_KEY``)
-   * - Brave
+   * - ``brave``
      - Yes
      - Yes
      - Yes for API (``BRAVE_API_KEY``)
-   * - DuckDuckGo
+   * - ``duckduckgo``
      - Yes
      - No
      - N/A
-   * - Baidu
+   * - ``baidu``
      - Yes
      - No
      - N/A
-   * - Sogou Weixin
+   * - ``sogou_weixin``
      - Yes
      - No
      - N/A
 
-**Configuration Example:**
+``google`` is HTML webquery only. Google API results go through ``google_serper`` (no CSE).
 
-.. code-block:: toml
+**Configuration examples:**
 
-   [search]
-   engine = "brave"
-   mode = "auto"          # auto | apiquery | webquery
-   limit = 10
-   api_key = "your-brave-api-key"
-   # Prefer env vars: BRAVE_API_KEY / SERPER_API_KEY
+.. code-block:: bash
+
+   # Brave with cascade (API when BRAVE_API_KEY is set)
+   export TARZI_SEARCH_ENGINE=brave
+   export TARZI_SEARCH_MODE=auto
+   export TARZI_SEARCH_LIMIT=10
+   export BRAVE_API_KEY=your-brave-api-key
+
+.. code-block:: bash
+
+   # Force Serper API only
+   export TARZI_SEARCH_ENGINE=google_serper
+   export TARZI_SEARCH_MODE=apiquery
+   export TARZI_SEARCH_LIMIT=10
+   export SERPER_API_KEY=your-serper-api-key
+
+.. code-block:: bash
+
+   # Web-only path (never call APIs)
+   export TARZI_SEARCH_ENGINE=duckduckgo
+   export TARZI_SEARCH_MODE=webquery
+   export TARZI_SEARCH_LIMIT=5

@@ -162,6 +162,21 @@ pub const DEFAULT_SEARCH_MODE: &str = SEARCH_MODE_AUTO;
 pub const ENV_BRAVE_API_KEY: &str = "BRAVE_API_KEY";
 pub const ENV_SERPER_API_KEY: &str = "SERPER_API_KEY";
 
+// Tarzi-specific configuration environment variable names
+pub const ENV_TARZI_LOG_LEVEL: &str = "TARZI_LOG_LEVEL";
+pub const ENV_TARZI_TIMEOUT: &str = "TARZI_TIMEOUT";
+pub const ENV_TARZI_FETCHER_MODE: &str = "TARZI_FETCHER_MODE";
+pub const ENV_TARZI_FETCHER_FORMAT: &str = "TARZI_FETCHER_FORMAT";
+pub const ENV_TARZI_USER_AGENT: &str = "TARZI_USER_AGENT";
+pub const ENV_TARZI_FETCHER_TIMEOUT: &str = "TARZI_FETCHER_TIMEOUT";
+pub const ENV_TARZI_PROXY: &str = "TARZI_PROXY";
+pub const ENV_TARZI_WEB_DRIVER: &str = "TARZI_WEB_DRIVER";
+pub const ENV_TARZI_WEB_DRIVER_URL: &str = "TARZI_WEB_DRIVER_URL";
+pub const ENV_TARZI_SEARCH_ENGINE: &str = "TARZI_SEARCH_ENGINE";
+pub const ENV_TARZI_QUERY_PATTERN: &str = "TARZI_QUERY_PATTERN";
+pub const ENV_TARZI_SEARCH_LIMIT: &str = "TARZI_SEARCH_LIMIT";
+pub const ENV_TARZI_SEARCH_MODE: &str = "TARZI_SEARCH_MODE";
+
 // ============================================================================
 // Search Engine Query Patterns
 // ============================================================================

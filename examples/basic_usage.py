@@ -36,7 +36,7 @@ def main():
     except Exception as e:
         print(f"Fetch failed: {e}")
 
-    # SearchEngine
+    # SearchEngine (default: bing + mode=auto)
     search_engine = tarzi.SearchEngine()
     try:
         results = search_engine.search("machine learning", 2)
@@ -49,9 +49,8 @@ def main():
     finally:
         search_engine.shutdown()
 
-    # Configuration-based usage
+    # Configuration-based usage (modes: auto | apiquery | webquery)
     try:
-        # Create config from string
         config_str = """
 [fetcher]
 timeout = 30
@@ -59,18 +58,19 @@ format = "markdown"
 web_driver = "chromedriver"
 
 [search]
-engine = "bing"
+engine = "brave"
+mode = "auto"
+limit = 3
 """
         config = tarzi.Config.from_str(config_str)
         print("Created config from string successfully")
 
-        # Use config with fetcher
         tarzi.WebFetcher.from_config(config)
         print("Created fetcher from config successfully")
 
-        # Use config with search engine
         tarzi.SearchEngine.from_config(config)
         print("Created search engine from config successfully")
+        print("Tip: set BRAVE_API_KEY / SERPER_API_KEY for apiquery; see examples/search_modes.py")
 
     except Exception as e:
         print(f"Configuration usage failed: {e}")

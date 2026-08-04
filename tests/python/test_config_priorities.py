@@ -1,64 +1,14 @@
 #!/usr/bin/env python3
 """
 Unit tests for configuration loading priorities in tarzi.
-Tests the precedence order: CLI > Env Vars > User Config > Project Config > Defaults
+Tests the precedence order: CLI > Env Vars > Defaults (programmatic from_str for explicit config).
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 
 import tarzi
-
-
-@pytest.fixture
-def temp_config_dir():
-    """Create a temporary directory for testing config files."""
-    temp_dir = tempfile.mkdtemp()
-    yield temp_dir
-    shutil.rmtree(temp_dir)
-
-
-@pytest.fixture
-def project_config_content():
-    """Sample project configuration."""
-    return """
-[general]
-log_level = "debug"
-timeout = 60
-
-[fetcher]
-mode = "browser_headless"
-format = "markdown"
-timeout = 30
-proxy = "http://project-proxy:8080"
-
-[search]
-engine = "bing"
-limit = 10
-"""
-
-
-@pytest.fixture
-def user_config_content():
-    """Sample user configuration that should override project config."""
-    return """
-[general]
-log_level = "warn"
-timeout = 45
-
-[fetcher]
-mode = "plain_request"
-format = "json"
-timeout = 60
-proxy = "http://user-proxy:3128"
-
-[search]
-engine = "google"
-limit = 5
-"""
 
 
 @pytest.mark.unit
@@ -69,7 +19,6 @@ class TestConfigPriorities:
         """Test that default configuration values are loaded correctly."""
         config = tarzi.Config()
 
-        # Test default values are set
         components = tarzi.WebFetcher.from_config(config)
         assert isinstance(components, tarzi.WebFetcher)
 
@@ -93,16 +42,36 @@ limit = 15
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Verify components can be created with overridden config
         fetcher = tarzi.WebFetcher.from_config(config)
         assert isinstance(fetcher, tarzi.WebFetcher)
 
         search_engine = tarzi.SearchEngine.from_config(config)
         assert isinstance(search_engine, tarzi.SearchEngine)
 
+    def test_config_load_from_env(self):
+        """Test that Config.load() picks up TARZI_* environment variables."""
+        original = {
+            "TARZI_SEARCH_ENGINE": os.environ.get("TARZI_SEARCH_ENGINE"),
+            "TARZI_SEARCH_MODE": os.environ.get("TARZI_SEARCH_MODE"),
+            "TARZI_SEARCH_LIMIT": os.environ.get("TARZI_SEARCH_LIMIT"),
+        }
+        try:
+            os.environ["TARZI_SEARCH_ENGINE"] = "brave"
+            os.environ["TARZI_SEARCH_MODE"] = "webquery"
+            os.environ["TARZI_SEARCH_LIMIT"] = "8"
+
+            config = tarzi.Config.load()
+            engine = tarzi.SearchEngine.from_config(config)
+            assert isinstance(engine, tarzi.SearchEngine)
+        finally:
+            for var, value in original.items():
+                if value is not None:
+                    os.environ[var] = value
+                elif var in os.environ:
+                    del os.environ[var]
+
     def test_environment_variable_override_config(self):
-        """Test that environment variables override config file settings."""
-        # Create a config with proxy setting
+        """Test that HTTP(S)_PROXY override config proxy at use time."""
         config_str = """
 [fetcher]
 proxy = "http://config-proxy:8080"
@@ -112,17 +81,13 @@ engine = "duckduckgo"
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Save original environment variables
         original_http_proxy = os.environ.get("HTTP_PROXY")
         original_https_proxy = os.environ.get("HTTPS_PROXY")
 
         try:
-            # Set environment variable that should override config
             os.environ["HTTP_PROXY"] = "http://env-proxy:3128"
             os.environ["HTTPS_PROXY"] = "http://env-https-proxy:3128"
 
-            # Components should still be created successfully
-            # The environment variable should take precedence internally
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -130,7 +95,6 @@ engine = "duckduckgo"
             assert isinstance(search_engine, tarzi.SearchEngine)
 
         finally:
-            # Restore original environment
             if original_http_proxy is not None:
                 os.environ["HTTP_PROXY"] = original_http_proxy
             elif "HTTP_PROXY" in os.environ:
@@ -152,17 +116,13 @@ engine = "duckduckgo"
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Save original environment variables
         original_http_proxy = os.environ.get("HTTP_PROXY")
         original_https_proxy = os.environ.get("HTTPS_PROXY")
 
         try:
-            # Set both HTTP_PROXY and HTTPS_PROXY
             os.environ["HTTP_PROXY"] = "http://http-proxy:8080"
             os.environ["HTTPS_PROXY"] = "http://https-proxy:3128"
 
-            # Components should be created successfully
-            # HTTPS_PROXY should take precedence internally
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -170,7 +130,6 @@ engine = "duckduckgo"
             assert isinstance(search_engine, tarzi.SearchEngine)
 
         finally:
-            # Restore original environment
             if original_http_proxy is not None:
                 os.environ["HTTP_PROXY"] = original_http_proxy
             elif "HTTP_PROXY" in os.environ:
@@ -192,14 +151,11 @@ engine = "duckduckgo"
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Save original environment variables
         original_http_proxy = os.environ.get("HTTP_PROXY")
 
         try:
-            # Set empty environment variable
             os.environ["HTTP_PROXY"] = ""
 
-            # Components should be created successfully and fall back to config proxy
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -207,7 +163,6 @@ engine = "duckduckgo"
             assert isinstance(search_engine, tarzi.SearchEngine)
 
         finally:
-            # Restore original environment
             if original_http_proxy is not None:
                 os.environ["HTTP_PROXY"] = original_http_proxy
             elif "HTTP_PROXY" in os.environ:
@@ -215,7 +170,6 @@ engine = "duckduckgo"
 
     def test_mixed_priority_scenarios(self):
         """Test complex scenarios with mixed configuration sources."""
-        # Test with environment variables and config
         config_str = """
 [general]
 log_level = "info"
@@ -232,17 +186,14 @@ limit = 5
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Save original environment variables
         original_env_vars = {
             "HTTP_PROXY": os.environ.get("HTTP_PROXY"),
             "HTTPS_PROXY": os.environ.get("HTTPS_PROXY"),
         }
 
         try:
-            # Set environment variables that should override config
             os.environ["HTTPS_PROXY"] = "http://env-proxy:3128"
 
-            # Components should be created successfully
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -250,7 +201,6 @@ limit = 5
             assert isinstance(search_engine, tarzi.SearchEngine)
 
         finally:
-            # Restore original environment
             for var, value in original_env_vars.items():
                 if value is not None:
                     os.environ[var] = value
@@ -268,7 +218,6 @@ timeout = 60
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Verify fetcher can be created with web driver configuration
         fetcher = tarzi.WebFetcher.from_config(config)
         assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -286,7 +235,6 @@ limit = 8
 """
         config = tarzi.Config.from_str(config_str)
 
-        # Verify components can be created with custom timeouts
         fetcher = tarzi.WebFetcher.from_config(config)
         assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -308,7 +256,6 @@ engine = "duckduckgo"
 """
             config = tarzi.Config.from_str(config_str)
 
-            # Verify fetcher can be created with different formats
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -327,14 +274,12 @@ engine = "duckduckgo"
 """
             config = tarzi.Config.from_str(config_str)
 
-            # Verify fetcher can be created with different modes
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
     def test_invalid_configuration_handling(self):
         """Test that invalid configurations are handled gracefully."""
         invalid_configs = [
-            # Invalid proxy URL
             """
 [fetcher]
 proxy = "invalid-proxy-url"
@@ -342,7 +287,6 @@ proxy = "invalid-proxy-url"
 [search]
 engine = "duckduckgo"
 """,
-            # Invalid engine
             """
 [search]
 engine = "invalid-engine"
@@ -352,17 +296,13 @@ engine = "invalid-engine"
         for config_str in invalid_configs:
             try:
                 config = tarzi.Config.from_str(config_str)
-                # Config parsing should succeed (validation might happen at runtime)
                 assert isinstance(config, tarzi.Config)
 
-                # Component creation may succeed or fail gracefully
                 try:
                     tarzi.WebFetcher.from_config(config)
                     tarzi.SearchEngine.from_config(config)
                 except Exception:
-                    # Invalid configs may cause failures, which is acceptable
                     pass
 
             except Exception:
-                # Config parsing failures are also acceptable for invalid configs
                 pass

@@ -36,3 +36,55 @@ Basic Usage
 
    # Search web (access mode comes from config; default auto cascade)
    results = tarzi.search_web("python programming", 10)
+
+Search Engines and Modes
+------------------------
+
+``SearchEngine`` reads ``search.engine`` and ``search.mode`` from :class:`tarzi.Config`.
+
+Supported engines: ``bing``, ``google``, ``google_serper`` (alias ``serper``), ``brave``,
+``duckduckgo``, ``baidu``, ``sogou_weixin``.
+
+Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`.
+
+.. code-block:: python
+
+   import tarzi
+
+   # Brave cascade (API when BRAVE_API_KEY is set)
+   config = tarzi.Config.from_str(
+       """
+   [search]
+   engine = "brave"
+   mode = "auto"
+   limit = 5
+   """
+   )
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("rust async", 5)
+
+   # Force Serper API
+   config = tarzi.Config.from_str(
+       """
+   [search]
+   engine = "google_serper"
+   mode = "apiquery"
+   """
+   )
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("agentic AI", 5)
+
+   # Web-only (never call APIs)
+   config = tarzi.Config.from_str(
+       """
+   [search]
+   engine = "duckduckgo"
+   mode = "webquery"
+   """
+   )
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("python packaging", 5)
+
+Environment keys ``BRAVE_API_KEY`` and ``SERPER_API_KEY`` override ``search.api_key``.
+
+More examples: :doc:`/examples/api_search` and ``examples/search_modes.py``.

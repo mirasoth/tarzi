@@ -81,7 +81,7 @@ mcp/
      --shm-size=2g \
      --restart unless-stopped \
      -e MOZ_HEADLESS=1 \
-     -e TARZI_BROWSER_TIMEOUT=60 \
+     -e TARZI_FETCHER_TIMEOUT=60 \
      tarzi-mcp-server:latest
    ```
 
@@ -96,12 +96,13 @@ export MOZ_HEADLESS=1
 export FIREFOX_BINARY_PATH=/usr/bin/firefox-esr
 export GECKODRIVER_PATH=/usr/local/bin/geckodriver
 
-# Browser behavior tuning
-export TARZI_BROWSER_TIMEOUT=30
-export TARZI_BROWSER_WINDOW_SIZE=1920,1080
-export TARZI_BROWSER_USER_AGENT="Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"
+# Browser behavior tuning (tarzi library)
+export TARZI_FETCHER_TIMEOUT=30
+export TARZI_USER_AGENT="Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"
+export TARZI_WEB_DRIVER=geckodriver
+# export TARZI_WEB_DRIVER_URL=http://localhost:4444
 
-# Data directories
+# Container browser paths (used by MCP start scripts / Firefox)
 export TARZI_BROWSER_DATA_DIR=/app/browser-data
 export TARZI_BROWSER_PROFILE_PATH=/app/.mozilla/firefox/tarzi.profile
 export TARZI_BROWSER_CACHE_DIR=/app/browser-data/cache
@@ -164,7 +165,7 @@ Add to `claude_desktop_config.json`:
 - **Purpose**: Search the web using Tarzi search engines
 - **Parameters**: query, limit
 - **Access cascade**: auto mode tries API (when key present) → plain HTTP → headless browser
-- **API keys**: `BRAVE_API_KEY`, `SERPER_API_KEY` (or `search.api_key` in config)
+- **API keys**: `BRAVE_API_KEY`, `SERPER_API_KEY` (engine-specific; tarzi has no product API key)
 - **Returns**: Structured search results
 
 ### 2. fetch ⭐ **Enhanced with Browser Automation**
@@ -185,7 +186,8 @@ Add to `claude_desktop_config.json`:
 ### 4. search_and_fetch ⭐ **Enhanced with Browser Automation**
 - **Purpose**: Search and fetch content from results
 - **Parameters**: query, limit, fetch_mode, content_format
-- **Search access**: driven by tarzi config (`search.mode` auto/apiquery/webquery)
+- **Search access**: driven by tarzi config (`search.mode` auto/apiquery/webquery;
+  engines include `brave`, `google_serper`, `bing`, `duckduckgo`, …)
 - **Browser**: Can use browser automation for content fetching
 - **Returns**: Search results with full content
 
@@ -312,8 +314,8 @@ docker-compose --profile debug up
 ### Browser Performance
 ```bash
 # Environment variables for optimization
-export TARZI_BROWSER_TIMEOUT=60        # Longer timeout for JS-heavy sites
-export TARZI_BROWSER_WINDOW_SIZE=1280,720  # Smaller for better performance
+export TARZI_FETCHER_TIMEOUT=60        # Longer timeout for JS-heavy sites
+export TARZI_FETCHER_MODE=browser_headless
 export MOZ_HEADLESS=1                  # Always use headless mode
 
 # Docker optimization

@@ -62,15 +62,22 @@ async fn main() -> Result<()> {
         Err(e) => println!("   JSON conversion failed: {e}"),
     }
 
-    // Example 3: Simple search without browser (using search parser)
+    // Example 3: Search engine configuration (engine + access mode)
     println!("\n3. Testing search engine configuration:");
     println!("   Default search engine: {}", config.search.engine);
+    println!(
+        "   Search mode: {} (auto | apiquery | webquery)",
+        config.search.mode
+    );
     println!("   Search limit: {}", config.search.limit);
     println!("   Query pattern: {}", config.search.query_pattern);
 
     // Create search engine
-    let _search_engine = SearchEngine::from_config(&config);
-    println!("   Search engine initialized successfully");
+    let search_engine = SearchEngine::from_config(&config);
+    println!(
+        "   Search engine initialized (resolved mode={:?})",
+        search_engine.search_mode()
+    );
 
     println!("\n=== Simple Example Complete ===");
     Ok(())

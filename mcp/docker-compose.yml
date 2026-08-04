@@ -12,12 +12,11 @@ services:
       - MOZ_HEADLESS=1
       - FIREFOX_BINARY_PATH=/usr/bin/firefox-esr
       - GECKODRIVER_PATH=/usr/local/bin/geckodriver
-      - TARZI_BROWSER_TIMEOUT=30
-      - TARZI_BROWSER_WINDOW_SIZE=1920,1080
-      - TARZI_BROWSER_USER_AGENT=Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0
+      - TARZI_FETCHER_TIMEOUT=30
+      - TARZI_USER_AGENT=Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0
+      - TARZI_WEB_DRIVER=geckodriver
       # Tarzi configuration
       - TARZI_TIMEOUT=30
-      - TARZI_USER_AGENT=Tarzi MCP Server/1.0
     volumes:
       - ./logs:/app/logs
       - browser-data:/app/browser-data

@@ -1,27 +1,31 @@
+//! Google search via Serper API (`google_serper` / `serper`).
+//!
+//! Requires:
+//!   export SERPER_API_KEY=your-key
+//!
+//! Run:
+//!   cargo run --example search_engine_serper
+
 use tarzi::{config::Config, search::SearchEngine};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
     tracing_subscriber::fmt::init();
 
-    // Load configuration with proper precedence
     let mut config = Config::load().unwrap_or_default();
-    config.fetcher.mode = "browser_head".to_string();
-    // Default search.mode is "auto" (API → plain HTTP → browser when supported)
-    println!(
-        "Using engine={} mode={}",
-        config.search.engine, config.search.mode
-    );
+    config.search.engine = "google_serper".to_string();
+    // API-only engine; auto and apiquery both require a key
+    config.search.mode = "apiquery".to_string();
+    config.search.limit = 5;
+    // Prefer SERPER_API_KEY env; optional fallback:
+    // config.search.api_key = Some("your-serper-api-key".to_string());
 
-    // Create search engine from config
     let mut search_engine = SearchEngine::from_config(&config);
+    let query = "agentic AI frameworks";
 
-    // Perform a search
-    let query = "agentic AI";
     match search_engine.search(query, config.search.limit).await {
         Ok(results) => {
-            println!("\nFound {} results:", results.len());
+            println!("Found {} Serper results:", results.len());
             for (i, result) in results.iter().enumerate() {
                 println!("{}. {}", i + 1, result.title);
                 println!("   URL: {}", result.url);
@@ -30,11 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            eprintln!("Search failed (WebDriver/network may be unavailable): {e}");
+            eprintln!("Serper search failed: {e}");
+            eprintln!("Set SERPER_API_KEY (or search.api_key) and retry.");
         }
     }
 
     search_engine.shutdown().await;
-
     Ok(())
 }

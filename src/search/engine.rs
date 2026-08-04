@@ -387,6 +387,39 @@ mod tests {
     }
 
     #[test]
+    fn test_search_engine_from_config_all_engines_all_modes() {
+        let engines = [
+            SEARCH_ENGINE_BING,
+            SEARCH_ENGINE_DUCKDUCKGO,
+            SEARCH_ENGINE_GOOGLE,
+            SEARCH_ENGINE_GOOGLE_SERPER,
+            SEARCH_ENGINE_SERPER_ALIAS,
+            SEARCH_ENGINE_BRAVE,
+            SEARCH_ENGINE_BAIDU,
+            SEARCH_ENGINE_SOUGOU_WEIXIN,
+        ];
+        let modes = [SEARCH_MODE_AUTO, SEARCH_MODE_APIQUERY, SEARCH_MODE_WEBQUERY];
+
+        for engine_name in engines {
+            for mode in modes {
+                let mut config = crate::config::Config::new();
+                config.search.engine = engine_name.to_string();
+                config.search.mode = mode.to_string();
+                config.search.api_key = Some("unit-test-key".to_string());
+
+                let engine = SearchEngine::from_config(&config);
+                let expected_type = SearchEngineType::from_str(engine_name).unwrap();
+                assert_eq!(engine.engine_type(), &expected_type, "engine={engine_name}");
+                assert_eq!(
+                    engine.search_mode(),
+                    SearchMode::from_str(mode).unwrap(),
+                    "engine={engine_name} mode={mode}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_search_engine_google_serper_from_config() {
         let mut config = crate::config::Config::new();
         config.search.engine = SEARCH_ENGINE_GOOGLE_SERPER.to_string();

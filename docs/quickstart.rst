@@ -210,11 +210,14 @@ Configure access via ``search.mode`` in TOML (default ``auto``):
 - **apiquery**: API only (Brave / Google Serper)
 - **webquery**: plain HTTP then browser (never uses API)
 
+Supported engines: ``bing`` (default), ``google``, ``google_serper`` (alias ``serper``),
+``brave``, ``duckduckgo``, ``baidu``, ``sogou_weixin``.
+
 API Search Providers
 ~~~~~~~~~~~~~~~~~~~~
 
 - **Brave** (``brave``): ``BRAVE_API_KEY`` or ``search.api_key``
-- **Google Serper** (``google_serper``): ``SERPER_API_KEY`` or ``search.api_key``
+- **Google Serper** (``google_serper`` / ``serper``): ``SERPER_API_KEY`` or ``search.api_key``
 
 .. code-block:: python
 
@@ -228,24 +231,30 @@ API Search Providers
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("artificial intelligence", 10)
 
+   # Web-only path (skip APIs)
+   config = tarzi.Config.from_str(
+       "[search]\nengine = \"brave\"\nmode = \"webquery\"\n"
+   )
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("rust async", 5)
+
 Configuration
 -------------
 
-Basic configuration can be done through environment variables or a `tarzi.toml` file:
+**Breaking change:** ``tarzi.toml`` / ``~/.tarzi.toml`` / ``Config.from_file`` are removed.
+Configure with environment variables (see ``.env.example``):
 
-.. code-block:: toml
+.. code-block:: bash
 
-   [search]
-   engine = "brave"
-   mode = "auto"
-   limit = 5
-   # Prefer: export BRAVE_API_KEY=... / SERPER_API_KEY=...
-   # api_key = "your-api-key"
-
-   [fetcher]
-   user_agent = "Mozilla/5.0 (compatible; Tarzi/1.0)"
-   timeout = 30
-   # proxy = "http://proxy.example.com:8080"
+   export TARZI_SEARCH_ENGINE=brave
+   export TARZI_SEARCH_MODE=auto
+   export TARZI_SEARCH_LIMIT=5
+   export TARZI_USER_AGENT="Mozilla/5.0 (compatible; Tarzi/1.0)"
+   export TARZI_FETCHER_TIMEOUT=30
+   # Engine API keys only (no TARZI_API_KEY):
+   # export BRAVE_API_KEY=... / SERPER_API_KEY=...
+   # Optional: export TARZI_PROXY=http://proxy.example.com:8080
+   # Or standard: export HTTPS_PROXY=... / HTTP_PROXY=...
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~

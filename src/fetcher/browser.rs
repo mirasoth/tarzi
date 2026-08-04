@@ -435,7 +435,7 @@ impl BrowserManager {
         Err(TarziError::Browser(
             "No self-managed WebDriver could be started. Please either:\n\
             1. Install ChromeDriver (https://chromedriver.chromium.org/) or GeckoDriver (https://github.com/mozilla/geckodriver/releases) and ensure they're in your PATH, or\n\
-            2. Configure web_driver_url in your tarzi.toml file to use an external WebDriver server".to_string()
+            2. Configure TARZI_WEB_DRIVER_URL to use an external WebDriver server".to_string()
         ))
     }
 

@@ -49,10 +49,10 @@ class TestConfig:
         with pytest.raises(RuntimeError, match="Failed to parse config"):
             tarzi.Config.from_str("invalid toml content")
 
-    def test_config_from_file_nonexistent(self):
-        """Test loading from non-existent file raises RuntimeError."""
-        with pytest.raises(RuntimeError, match="Failed to read config file"):
-            tarzi.Config.from_file("nonexistent_file.toml")
+    def test_config_load(self):
+        """Test Config.load() returns a config from env/defaults."""
+        config = tarzi.Config.load()
+        assert isinstance(config, tarzi.Config)
 
 
 @pytest.mark.unit

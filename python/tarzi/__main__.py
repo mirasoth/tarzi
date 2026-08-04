@@ -53,50 +53,12 @@ def main():
         sys.exit(1)
 
     try:
-        import os
-
         import tarzi
 
-        # Load configuration with proper precedence:
-        # 1. CLI parameters (highest priority - applied later)
-        # 2. ~/.tarzi.toml (user config)
-        # 3. tarzi.toml (project config)
-        # 4. Default values (lowest priority)
-        config = None
-
-        # Try to load from project config (tarzi.toml) first
-        project_config_path = "tarzi.toml"
-        if os.path.exists(project_config_path):
-            try:
-                config = tarzi.Config.from_file(project_config_path)
-                if args.verbose:
-                    print(f"Loaded project configuration from {project_config_path}")
-            except Exception as e:
-                if args.verbose:
-                    print(f"Warning: Failed to load project config from {project_config_path}: {e}")
-
-        # Try to load from user config (~/.tarzi.toml) - overrides project config
-        user_config_path = os.path.expanduser("~/.tarzi.toml")
-        if os.path.exists(user_config_path):
-            try:
-                user_config = tarzi.Config.from_file(user_config_path)
-                if config is None:
-                    config = user_config
-                else:
-                    # Merge user config into project config (user config takes precedence)
-                    # For simplicity, we'll just use the user config as it has higher priority
-                    config = user_config
-                if args.verbose:
-                    print(f"Loaded user configuration from {user_config_path}")
-            except Exception as e:
-                if args.verbose:
-                    print(f"Warning: Failed to load user config from {user_config_path}: {e}")
-
-        # If no config was loaded, create a default one
-        if config is None:
-            config = tarzi.Config()
-            if args.verbose:
-                print("Using default configuration")
+        # Load configuration: CLI args > env (TARZI_*) > defaults
+        config = tarzi.Config.load()
+        if args.verbose:
+            print("Loaded configuration from environment and defaults")
 
         if args.command == "convert":
             converter = tarzi.Converter()
@@ -111,13 +73,10 @@ def main():
                 print(result)
 
         elif args.command == "fetch":
-            if config:
-                fetcher = tarzi.WebFetcher.from_config(config)
-            else:
-                fetcher = tarzi.WebFetcher()
-            # Use config mode or default to plain_request
-            mode = config.fetcher.mode if config else "plain_request"
-            result = fetcher.fetch(args.url, mode, args.format)
+            fetcher = tarzi.WebFetcher.from_config(config)
+            # Mode comes from env via Config.load(); CLI does not expose a mode flag.
+            # Use browser_headless to match library defaults when calling fetch().
+            result = fetcher.fetch(args.url, "browser_headless", args.format)
 
             if args.output:
                 with open(args.output, "w") as f:
@@ -128,15 +87,8 @@ def main():
                 print(result)
 
         elif args.command == "search":
-            if config:
-                engine = tarzi.SearchEngine.from_config(config)
-            else:
-                engine = tarzi.SearchEngine()
-            # Use config limit or default
-            limit = config.search.limit if config else 5
-
-            # Perform search
-            results = engine.search(args.query, limit)
+            engine = tarzi.SearchEngine.from_config(config)
+            results = engine.search(args.query, args.limit)
 
             # Convert results to the requested format
             if args.format == "json":
@@ -161,13 +113,10 @@ def main():
                 print(result)
 
         elif args.command == "search-with-content":
-            if config:
-                engine = tarzi.SearchEngine.from_config(config)
-            else:
-                engine = tarzi.SearchEngine()
-            # Use config fetch mode or default
-            fetch_mode = config.fetcher.mode if config else "plain_request"
-            results_with_content = engine.search_with_content(args.query, args.limit, fetch_mode, args.format)
+            engine = tarzi.SearchEngine.from_config(config)
+            results_with_content = engine.search_with_content(
+                args.query, args.limit, "browser_headless", args.format
+            )
 
             # Format the combined results
             if args.format == "json":

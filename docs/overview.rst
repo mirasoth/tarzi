@@ -73,17 +73,20 @@ The Search module provides comprehensive search engine integration:
 **API Clients**
    REST JSON clients for:
 
-   - Brave Search API (``BRAVE_API_KEY``)
-   - Google Serper (``SERPER_API_KEY``, engine ``google_serper``)
+   - Brave Search API (``BRAVE_API_KEY``, engine ``brave``)
+   - Google Serper (``SERPER_API_KEY``, engine ``google_serper`` / ``serper``)
+
+   ``google`` is web-only; API Google results use ``google_serper`` (no CSE).
 
 **Configuration**
-   ``search.mode`` = ``auto`` | ``apiquery`` | ``webquery``;
-   optional ``search.api_key`` (env keys take precedence).
+   Environment variables (``TARZI_*``); file config (``tarzi.toml``) was removed.
+   ``TARZI_SEARCH_MODE`` = ``auto`` | ``apiquery`` | ``webquery``;
+   API keys via ``BRAVE_API_KEY`` / ``SERPER_API_KEY`` only.
 
 Key features:
 
 - Multiple search engine support
-- Configurable result limits
+- Configurable access cascade and result limits
 - Search result ranking
 - Snippet extraction
 - URL validation and cleaning

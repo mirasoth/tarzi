@@ -71,13 +71,29 @@ print(content)
 ```python
 import tarzi
 
-# Create search engine
+# Default: bing + mode=auto (API → plain HTTP → browser when supported)
 engine = tarzi.SearchEngine()
-
-# Search the web
 results = engine.search('python programming', 5)
 for result in results:
     print(f"{result.title}: {result.url}")
+
+# Configure engine + access mode
+config = tarzi.Config.from_str("""
+[search]
+engine = "brave"
+mode = "auto"
+limit = 5
+""")
+engine = tarzi.SearchEngine.from_config(config)
+results = engine.search('rust async', 5)
+
+# Google via Serper (requires SERPER_API_KEY)
+config = tarzi.Config.from_str("""
+[search]
+engine = "google_serper"
+mode = "apiquery"
+""")
+engine = tarzi.SearchEngine.from_config(config)
 ```
 
 ## Available Classes and Functions
@@ -104,6 +120,17 @@ for result in results:
 - `plain_request` - Simple HTTP request
 - `browser_head` - Browser with head (faster)
 - `browser_headless` - Full headless browser
+
+### Search Engines
+- `bing`, `google`, `google_serper` (alias `serper`), `brave`, `duckduckgo`, `baidu`, `sogou_weixin`
+
+### Search Access Modes (`search.mode`)
+- `auto` (default) - API (if key) → plain HTTP → headless browser
+- `apiquery` - API only (Brave / Google Serper)
+- `webquery` - Plain HTTP → browser (never API)
+
+Env keys: `BRAVE_API_KEY`, `SERPER_API_KEY` (engine-specific; there is no `TARZI_API_KEY`).
+File config (`tarzi.toml`) was removed — use `Config.load()` / env vars / `Config.from_str`.
 
 ## Development Commands
 

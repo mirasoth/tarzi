@@ -61,28 +61,30 @@ mod tests {
     fn test_parser_factory() {
         let factory = ParserFactory::new();
 
-        // Test that we get the correct parser for each engine type
-        let bing_parser = factory.get_parser(&SearchEngineType::Bing);
-        assert_eq!(bing_parser.name(), "BingParser");
+        let expected = [
+            (SearchEngineType::Bing, "BingParser"),
+            (SearchEngineType::DuckDuckGo, "DuckDuckGoParser"),
+            (SearchEngineType::Google, "GoogleParser"),
+            (SearchEngineType::GoogleSerper, "GoogleSerperParser"),
+            (SearchEngineType::BraveSearch, "BraveParser"),
+            (SearchEngineType::Baidu, "BaiduParser"),
+            (SearchEngineType::SougouWeixin, "SogouWeixinParser"),
+        ];
 
-        let duckduckgo_parser = factory.get_parser(&SearchEngineType::DuckDuckGo);
-        assert_eq!(duckduckgo_parser.name(), "DuckDuckGoParser");
-
-        let google_parser = factory.get_parser(&SearchEngineType::Google);
-        assert_eq!(google_parser.name(), "GoogleParser");
-
-        let brave_parser = factory.get_parser(&SearchEngineType::BraveSearch);
-        assert_eq!(brave_parser.name(), "BraveParser");
-
-        let baidu_parser = factory.get_parser(&SearchEngineType::Baidu);
-        assert_eq!(baidu_parser.name(), "BaiduParser");
+        for (engine_type, name) in expected {
+            let parser = factory.get_parser(&engine_type);
+            assert_eq!(parser.name(), name);
+            assert!(
+                parser.supports(&engine_type),
+                "{name} should support {engine_type:?}"
+            );
+        }
     }
 
     #[test]
     fn test_parser_support() {
         let factory = ParserFactory::new();
 
-        // Test that each parser supports its own engine type
         let parsers = vec![
             ("BingParser", factory.get_parser(&SearchEngineType::Bing)),
             (
@@ -94,10 +96,18 @@ mod tests {
                 factory.get_parser(&SearchEngineType::Google),
             ),
             (
+                "GoogleSerperParser",
+                factory.get_parser(&SearchEngineType::GoogleSerper),
+            ),
+            (
                 "BraveParser",
                 factory.get_parser(&SearchEngineType::BraveSearch),
             ),
             ("BaiduParser", factory.get_parser(&SearchEngineType::Baidu)),
+            (
+                "SogouWeixinParser",
+                factory.get_parser(&SearchEngineType::SougouWeixin),
+            ),
         ];
 
         for (name, parser) in parsers {
@@ -105,8 +115,10 @@ mod tests {
                 parser.supports(&SearchEngineType::Bing)
                     || parser.supports(&SearchEngineType::DuckDuckGo)
                     || parser.supports(&SearchEngineType::Google)
+                    || parser.supports(&SearchEngineType::GoogleSerper)
                     || parser.supports(&SearchEngineType::BraveSearch)
-                    || parser.supports(&SearchEngineType::Baidu),
+                    || parser.supports(&SearchEngineType::Baidu)
+                    || parser.supports(&SearchEngineType::SougouWeixin),
                 "Parser {name} should support at least one engine type"
             );
         }
@@ -132,6 +144,10 @@ mod tests {
                 factory.get_parser(&SearchEngineType::BraveSearch),
             ),
             ("BaiduParser", factory.get_parser(&SearchEngineType::Baidu)),
+            (
+                "SogouWeixinParser",
+                factory.get_parser(&SearchEngineType::SougouWeixin),
+            ),
         ];
 
         for (name, parser) in parsers {

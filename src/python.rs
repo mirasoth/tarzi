@@ -571,7 +571,7 @@ pub struct PyConfig {
 #[allow(non_local_definitions)]
 #[pymethods]
 impl PyConfig {
-    /// Create a new configuration with default values
+    /// Create a new configuration with default values (no env overlay)
     ///
     /// Returns:
     ///     Config: A new configuration instance
@@ -582,36 +582,24 @@ impl PyConfig {
         }
     }
 
-    /// Load configuration from a TOML file
+    /// Load configuration from environment variables and defaults
     ///
-    /// Args:
-    ///     path (str): Path to configuration file
-    ///     
     /// Returns:
-    ///     Config: Configuration loaded from file
-    ///     
+    ///     Config: Configuration from env (`TARZI_*`) over defaults
+    ///
     /// Raises:
-    ///     RuntimeError: If file cannot be read or parsed
+    ///     RuntimeError: If an environment variable has an invalid value
     #[classmethod]
-    fn from_file(_cls: &Bound<'_, PyType>, path: &str) -> PyResult<Self> {
-        use std::fs;
-
-        let content = fs::read_to_string(path).map_err(|e| {
+    fn load(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        let config = Config::load().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to read config file '{path}': {e}"
+                "Failed to load config from environment: {e}"
             ))
         })?;
-
-        let config: Config = toml::from_str(&content).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to parse config file '{path}': {e}"
-            ))
-        })?;
-
         Ok(Self { inner: config })
     }
 
-    /// Create configuration from TOML string
+    /// Create configuration from TOML string (programmatic)
     ///
     /// Args:
     ///     content (str): TOML configuration content

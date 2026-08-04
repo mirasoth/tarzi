@@ -105,7 +105,7 @@ logs/
 *.log
 
 # Tarzi specific
-tarzi.toml
+.env
 .tarzi/
 
 # IDE

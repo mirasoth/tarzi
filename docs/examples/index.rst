@@ -6,7 +6,7 @@ Real-world examples and use cases for tarzi.
 Getting Started
 ---------------
 
-All examples are available in the `examples/` directory of the repository:
+All examples are available in the ``examples/`` directory of the repository:
 
 .. code-block:: bash
 
@@ -15,12 +15,39 @@ All examples are available in the `examples/` directory of the repository:
 
    # Python examples
    python examples/basic_usage.py
+   python examples/search_modes.py
+   python examples/search_engine_serper.py
    python examples/sogou_weixin_search.py
 
    # Rust examples
    cargo run --example basic_usage
+   cargo run --example search_modes
    cargo run --example search_engine_brave
+   cargo run --example search_engine_serper
    cargo run --example search_engine_default
+
+Example Catalog
+---------------
+
+**Search access modes**
+   ``search_modes`` (Rust / Python) — walks Bing/DuckDuckGo/Brave/Serper/Google across
+   ``auto``, ``apiquery``, and ``webquery``. Optional: ``BRAVE_API_KEY``, ``SERPER_API_KEY``.
+
+**Brave cascade**
+   ``search_engine_brave`` — Brave with ``mode=auto`` (API when keyed, else web).
+
+**Google via Serper**
+   ``search_engine_serper`` (Rust / Python) — API-only ``google_serper`` / ``apiquery``.
+   Requires ``SERPER_API_KEY``.
+
+**Default engine**
+   ``search_engine_default`` — uses env/defaults (Bing + ``auto``).
+
+**Sogou Weixin**
+   ``sogou_weixin_search`` — WeChat article search via Sogou.
+
+**Basics**
+   ``basic_usage``, ``simple_usage``, ``browser_driver_usage`` — fetch, convert, and search wiring.
 
 Documentation Examples
 ----------------------

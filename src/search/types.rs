@@ -239,6 +239,41 @@ mod tests {
     }
 
     #[test]
+    fn test_engine_capabilities_matrix() {
+        let cases = [
+            (SearchEngineType::Bing, false, true, false),
+            (SearchEngineType::DuckDuckGo, false, true, false),
+            (SearchEngineType::Google, false, true, false),
+            (SearchEngineType::GoogleSerper, true, false, true),
+            (SearchEngineType::BraveSearch, true, true, false),
+            (SearchEngineType::Baidu, false, true, false),
+            (SearchEngineType::SougouWeixin, false, true, false),
+        ];
+
+        for (engine, api, web, api_only) in cases {
+            assert_eq!(engine.supports_api(), api, "{engine:?} supports_api");
+            assert_eq!(engine.supports_web(), web, "{engine:?} supports_web");
+            assert_eq!(engine.is_api_only(), api_only, "{engine:?} is_api_only");
+            assert_eq!(
+                engine.api_query_pattern().is_some(),
+                api,
+                "{engine:?} api_query_pattern"
+            );
+            if web {
+                assert!(
+                    !engine.browser_query_pattern().is_empty(),
+                    "{engine:?} browser pattern"
+                );
+            } else {
+                assert!(
+                    engine.browser_query_pattern().is_empty(),
+                    "{engine:?} should have empty browser pattern"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_search_result_creation() {
         let result = SearchResult {
             title: "Test Title".to_string(),

@@ -17,6 +17,42 @@ Forced modes:
 - ``apiquery`` — API only (errors if unsupported or key missing)
 - ``webquery`` — plain HTTP then browser (never uses API)
 
+Engine Capabilities
+-------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 15 15 48
+
+   * - Engine
+     - Web
+     - API
+     - Notes
+   * - ``bing``
+     - Yes
+     - No
+     - Default engine
+   * - ``google``
+     - Yes
+     - No
+     - HTML only; use ``google_serper`` for API
+   * - ``google_serper`` / ``serper``
+     - No
+     - Yes
+     - Requires ``SERPER_API_KEY``
+   * - ``brave``
+     - Yes
+     - Yes
+     - ``BRAVE_API_KEY`` for API path
+   * - ``duckduckgo``
+     - Yes
+     - No
+     - Plain HTML URL differs from browser SERP
+   * - ``baidu`` / ``sogou_weixin``
+     - Yes
+     - No
+     - Web cascade only
+
 Supported API Engines
 ---------------------
 
@@ -29,7 +65,7 @@ Basic API Search
 ----------------
 
 Python
-~~~~~~~
+~~~~~~
 
 .. code-block:: python
 
@@ -94,10 +130,30 @@ Google via Serper
 
    [search]
    engine = "google_serper"
-   mode = "auto"
+   mode = "apiquery"
    limit = 10
    # Prefer env: export SERPER_API_KEY=...
    # api_key = "your-serper-api-key"
+
+Web-only Mode
+-------------
+
+Force the HTTP → browser path (useful to avoid spending API quota):
+
+.. code-block:: python
+
+   import tarzi
+
+   config = tarzi.Config.from_str(
+       """
+   [search]
+   engine = "brave"
+   mode = "webquery"
+   limit = 5
+   """
+   )
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("rust async", 5)
 
 Environment Variables
 ---------------------
@@ -106,3 +162,19 @@ Environment Variables
 - ``SERPER_API_KEY`` — Google Serper API
 
 Environment variables take precedence over ``search.api_key`` in config.
+
+Runnable Examples
+-----------------
+
+From the repository ``examples/`` directory:
+
+.. code-block:: bash
+
+   cargo run --example search_modes
+   cargo run --example search_engine_brave
+   cargo run --example search_engine_serper
+
+   python examples/search_modes.py
+   python examples/search_engine_serper.py
+
+See also :doc:`/configuration` for the full engine capability table.

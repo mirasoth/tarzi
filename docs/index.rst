@@ -53,10 +53,11 @@ Key Features
    Access cascade: API key → plain HTTP → headless browser
 
 🎯 **Web Search Engines**
-   Bing, Google, DuckDuckGo, Brave, Baidu, Sogou Weixin, Google Serper
+   Bing, Google, DuckDuckGo, Brave, Baidu, Sogou Weixin, Google Serper (``google_serper``)
 
 🚀 **API Search Providers**
-   Brave Search API and Google Serper (``SERPER_API_KEY`` / ``BRAVE_API_KEY``)
+   Brave Search API and Google Serper (``BRAVE_API_KEY`` / ``SERPER_API_KEY``);
+   modes: ``auto`` | ``apiquery`` | ``webquery``
 
 🔒 **Proxy Support**
    Use proxies for plain HTTP and API paths (browser proxy is limited)

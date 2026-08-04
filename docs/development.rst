@@ -22,7 +22,10 @@ To add a new search engine:
 2. Implement ``BaseParser``
 3. Add the parser to ``ParserFactory::get_parser()``
 4. Update ``SearchEngineType`` and query patterns in ``constants.rs``
-5. If the engine has an official API, add a client under ``src/search/api/`` and wire it into the access cascade
+5. Declare ``supports_api`` / ``supports_web`` / ``is_api_only`` behavior on the engine type
+6. If the engine has an official API, add a client under ``src/search/api/`` and wire it into
+   ``resolve_access`` / ``SearchEngine::search_via_api``
+7. Add unit coverage in the engine×mode matrix (``src/search/access.rs``) and examples/docs
 
 Development Setup
 -----------------
@@ -30,29 +33,21 @@ Development Setup
 Prerequisites
 ~~~~~~~~~~~~~
 
-- Rust 1.70 or higher
+- Rust stable toolchain
 - Python 3.10 or higher
 - Git
-- Cargo and pip package managers
+- Cargo and uv / pip
 
 Clone and Setup
 ~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-   # Clone the repository
    git clone https://github.com/mirasoth/tarzi.git
    cd tarzi
-   cd tarzi
 
-   # Install Rust dependencies
    cargo build
-
-   # Install Python development dependencies
-   pip install -e .[dev]
-
-   # Install maturin for Python bindings
-   pip install maturin
+   make install-dev
 
 Building from Source
 --------------------
@@ -62,59 +57,47 @@ Rust Library
 
 .. code-block:: bash
 
-   # Build in debug mode
    cargo build
-
-   # Build in release mode
    cargo build --release
-
-   # Run tests
    cargo test
-
-   # Run with specific features
-   cargo build --features "full"
 
 Python Bindings
 ~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-   # Build Python wheel
    maturin build --release
-
-   # Install in development mode
    maturin develop --release
-
-   # Build for specific Python version
-   maturin build --release --interpreter python3.11
 
 CLI Tool
 ~~~~~~~~
 
 .. code-block:: bash
 
-   # Build CLI
    cargo build --release --bin tarzi
-
-   # Install CLI locally
    cargo install --path .
 
 Testing
 -------
+
+Prefer Makefile targets:
+
+.. code-block:: bash
+
+   make test-unit          # Rust + Python unit tests
+   make test-integration   # Rust + Python integration tests
+   make check              # format + lint
 
 Rust Tests
 ~~~~~~~~~~
 
 .. code-block:: bash
 
-   # Run all tests
-   cargo test
+   # Library unit tests (includes access cascade matrix)
+   cargo test --lib
 
-   # Run specific test
-   cargo test test_name
-
-   # Run integration tests
-   cargo test --test integration_test_name
+   # Search mode integration (all engines × modes; network soft-fails)
+   cargo test --test search_mode_integration_tests
 
    # Run with output
    cargo test -- --nocapture
@@ -124,14 +107,15 @@ Python Tests
 
 .. code-block:: bash
 
-   # Run Python tests
-   pytest tarzi/tests/python/
+   # Unit tests (includes tests/python/test_search_modes.py)
+   make test-unit-python
 
-   # Run with coverage
-   pytest tarzi/tests/python/ --cov=tarzi
+   # Integration (includes search_mode_integration_test.py)
+   make test-integration-python
 
-   # Run specific test file
-   pytest tarzi/tests/python/unit/test_converter.py
+   # Focused
+   uv run pytest tests/python/test_search_modes.py -q
+   uv run pytest tests/python/integration/search_mode_integration_test.py -q
 
 Documentation
 -------------

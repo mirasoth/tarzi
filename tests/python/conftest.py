@@ -42,8 +42,8 @@ except ImportError as e:
             return cls()
 
         @classmethod
-        def from_file(cls, filename):
-            raise RuntimeError(f"Failed to read config file: {filename}")
+        def load(cls):
+            return cls()
 
     class MockConverter:
         def __str__(self):
