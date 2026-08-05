@@ -42,8 +42,7 @@ async fn test_browser_creation_with_timeout(
 ) -> Result<(), String> {
     let mut browser_manager = BrowserManager::from_config(&config);
 
-    let result =
-        tokio::time::timeout(TEST_TIMEOUT, browser_manager.get_or_create_browser(true)).await;
+    let result = tokio::time::timeout(TEST_TIMEOUT, browser_manager.get_or_create_browser()).await;
 
     match result {
         Ok(Ok(_browser)) => {
@@ -182,8 +181,7 @@ async fn test_empty_external_url_uses_self_managed() {
 async fn test_no_config_uses_self_managed() {
     let mut browser_manager = BrowserManager::new();
 
-    let result =
-        tokio::time::timeout(TEST_TIMEOUT, browser_manager.get_or_create_browser(true)).await;
+    let result = tokio::time::timeout(TEST_TIMEOUT, browser_manager.get_or_create_browser()).await;
 
     match result {
         Ok(Ok(_browser)) => {
@@ -217,7 +215,7 @@ async fn test_driver_types_are_exclusive() {
         let config_external = create_config_with_external_url("http://localhost:9999");
         let mut browser_manager_external = BrowserManager::from_config(&config_external);
 
-        let result_external = browser_manager_external.get_or_create_browser(true).await;
+        let result_external = browser_manager_external.get_or_create_browser().await;
         assert!(result_external.is_err());
         assert!(!browser_manager_external.has_managed_driver()); // Should not have started a managed driver
 
@@ -225,7 +223,7 @@ async fn test_driver_types_are_exclusive() {
         let config_self_managed = create_config_for_self_managed("geckodriver");
         let mut browser_manager_self = BrowserManager::from_config(&config_self_managed);
 
-        let result_self = browser_manager_self.get_or_create_browser(true).await;
+        let result_self = browser_manager_self.get_or_create_browser().await;
         match result_self {
             Ok(_) => {
                 // If successful, must be self-managed
@@ -259,7 +257,7 @@ async fn test_managed_driver_info() {
         assert!(!browser_manager.has_managed_driver());
         assert!(browser_manager.get_managed_driver_info().is_none());
 
-        let result = browser_manager.get_or_create_browser(true).await;
+        let result = browser_manager.get_or_create_browser().await;
 
         if result.is_ok() {
             // Should now have managed driver info
@@ -297,7 +295,7 @@ async fn test_multiple_calls_same_external_url() {
     for i in 0..3 {
         let result = tokio::time::timeout(
             Duration::from_secs(20), // Shorter timeout for multiple calls
-            browser_manager.get_or_create_browser(true),
+            browser_manager.get_or_create_browser(),
         )
         .await;
 
@@ -358,7 +356,7 @@ async fn test_config_merge_preserves_driver_type() {
 
         // Should now use external driver type
         let mut browser_manager = BrowserManager::from_config(&base_config);
-        let result = browser_manager.get_or_create_browser(true).await;
+        let result = browser_manager.get_or_create_browser().await;
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();

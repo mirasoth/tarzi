@@ -1,7 +1,7 @@
 use std::time::Duration;
 use tarzi::converter::Format;
 use tarzi::error::TarziError;
-use tarzi::fetcher::{FetchMode, WebFetcher};
+use tarzi::fetcher::WebFetcher;
 use tarzi::utils::is_webdriver_available;
 
 // Integration tests for fetcher module
@@ -31,7 +31,7 @@ async fn is_url_reachable(url: &str) -> bool {
 }
 
 #[tokio::test]
-async fn test_fetch_plain_request_httpbin() {
+async fn test_fetch_httpbin_html() {
     let test_url = "https://httpbin.org/html";
 
     // Skip test if URL is not reachable
@@ -44,9 +44,7 @@ async fn test_fetch_plain_request_httpbin() {
     tokio::time::timeout(test_timeout, async {
         let mut fetcher = create_test_fetcher();
 
-        let result = fetcher
-            .fetch(test_url, FetchMode::PlainRequest, Format::Html)
-            .await;
+        let result = fetcher.fetch(test_url, Format::Html).await;
 
         match result {
             Ok(content) => {
@@ -71,7 +69,7 @@ async fn test_fetch_plain_request_httpbin() {
 }
 
 #[tokio::test]
-async fn test_fetch_plain_request_json() {
+async fn test_fetch_httpbin_json() {
     let test_url = "https://httpbin.org/json";
 
     // Skip test if URL is not reachable
@@ -81,9 +79,7 @@ async fn test_fetch_plain_request_json() {
     }
 
     let mut fetcher = create_test_fetcher();
-    let result = fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Json)
-        .await;
+    let result = fetcher.fetch(test_url, Format::Json).await;
 
     match result {
         Ok(content) => {
@@ -112,7 +108,7 @@ async fn test_fetch_plain_request_json() {
 }
 
 #[tokio::test]
-async fn test_fetch_plain_request_markdown() {
+async fn test_fetch_httpbin_markdown() {
     let test_url = "https://httpbin.org/html";
 
     // Skip test if URL is not reachable
@@ -124,9 +120,7 @@ async fn test_fetch_plain_request_markdown() {
     let mut fetcher = create_test_fetcher();
 
     // Test fetching HTML and converting to markdown
-    let result = fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Markdown)
-        .await;
+    let result = fetcher.fetch(test_url, Format::Markdown).await;
 
     match result {
         Ok(content) => {
@@ -149,7 +143,7 @@ async fn test_fetch_plain_request_markdown() {
 }
 
 #[tokio::test]
-async fn test_fetch_plain_request_yaml() {
+async fn test_fetch_httpbin_yaml() {
     let test_url = "https://httpbin.org/html";
 
     // Skip test if URL is not reachable
@@ -161,9 +155,7 @@ async fn test_fetch_plain_request_yaml() {
     let mut fetcher = create_test_fetcher();
 
     // Test fetching HTML and converting to YAML
-    let result = fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Yaml)
-        .await;
+    let result = fetcher.fetch(test_url, Format::Yaml).await;
 
     match result {
         Ok(content) => {
@@ -185,7 +177,7 @@ async fn test_fetch_plain_request_yaml() {
 }
 
 #[tokio::test]
-async fn test_fetch_raw_plain_request() {
+async fn test_fetch_raw() {
     let test_url = "https://httpbin.org/html";
 
     // Skip test if URL is not reachable
@@ -197,7 +189,7 @@ async fn test_fetch_raw_plain_request() {
     let mut fetcher = create_test_fetcher();
 
     // Test fetching raw content without conversion
-    let result = fetcher.fetch_raw(test_url, FetchMode::PlainRequest).await;
+    let result = fetcher.fetch_raw(test_url).await;
 
     match result {
         Ok(content) => {
@@ -223,11 +215,7 @@ async fn test_fetch_invalid_url() {
 
     // Test fetching from a non-existent URL
     let result = fetcher
-        .fetch(
-            "https://this-domain-does-not-exist-12345.com",
-            FetchMode::PlainRequest,
-            Format::Html,
-        )
+        .fetch("https://this-domain-does-not-exist-12345.com", Format::Html)
         .await;
 
     assert!(result.is_err());
@@ -246,7 +234,6 @@ async fn test_fetch_timeout_url() {
     let result = fetcher
         .fetch(
             "http://10.255.255.255", // Non-routable IP
-            FetchMode::PlainRequest,
             Format::Html,
         )
         .await;
@@ -256,7 +243,7 @@ async fn test_fetch_timeout_url() {
 }
 
 #[tokio::test]
-async fn test_fetch_with_proxy_plain_request() {
+async fn test_fetch_with_proxy() {
     let test_url = "https://httpbin.org/html";
 
     // Skip test if URL is not reachable
@@ -270,12 +257,7 @@ async fn test_fetch_with_proxy_plain_request() {
 
     // Test fetching with an invalid proxy (should fail)
     let result = fetcher
-        .fetch_with_proxy(
-            test_url,
-            invalid_proxy,
-            FetchMode::PlainRequest,
-            Format::Html,
-        )
+        .fetch_with_proxy(test_url, invalid_proxy, Format::Html)
         .await;
 
     match result {
@@ -319,9 +301,7 @@ async fn test_fetch_multiple_requests() {
     let mut success_count = 0;
 
     for url in reachable_urls {
-        let result = fetcher
-            .fetch(url, FetchMode::PlainRequest, Format::Html)
-            .await;
+        let result = fetcher.fetch(url, Format::Html).await;
 
         match result {
             Ok(content) => {
@@ -351,7 +331,7 @@ async fn test_fetch_different_formats() {
     let formats = vec![Format::Html, Format::Markdown, Format::Json, Format::Yaml];
 
     for format in formats {
-        let result = fetcher.fetch(url, FetchMode::PlainRequest, format).await;
+        let result = fetcher.fetch(url, format).await;
         match result {
             Ok(content) => {
                 assert!(!content.is_empty());
@@ -370,7 +350,7 @@ async fn test_fetch_different_formats() {
 }
 
 #[tokio::test]
-async fn test_fetch_browser_headless() {
+async fn test_fetch_browser() {
     let test_url = "https://httpbin.org/html";
 
     // Skip test if WebDriver is not available
@@ -388,11 +368,7 @@ async fn test_fetch_browser_headless() {
     let mut fetcher = create_test_fetcher();
     let test_timeout = Duration::from_secs(120); // Longer timeout for browser tests
 
-    let result = tokio::time::timeout(
-        test_timeout,
-        fetcher.fetch(test_url, FetchMode::BrowserHeadless, Format::Html),
-    )
-    .await;
+    let result = tokio::time::timeout(test_timeout, fetcher.fetch_browser(test_url)).await;
 
     match result {
         Ok(Ok(content)) => {
@@ -422,55 +398,6 @@ async fn test_fetch_browser_headless() {
 }
 
 #[tokio::test]
-async fn test_fetch_browser_head() {
-    let test_url = "https://httpbin.org/html";
-
-    // Skip test if WebDriver is not available
-    if !is_webdriver_available().await {
-        println!("✓ Skipping browser head test - WebDriver not available");
-        return;
-    }
-
-    // Skip test if URL is not reachable
-    if !is_url_reachable(test_url).await {
-        println!("✓ Skipping browser head test - {test_url} not reachable");
-        return;
-    }
-
-    let mut fetcher = create_test_fetcher();
-    let test_timeout = Duration::from_secs(120); // Longer timeout for browser tests
-
-    let result = tokio::time::timeout(
-        test_timeout,
-        fetcher.fetch(test_url, FetchMode::BrowserHead, Format::Html),
-    )
-    .await;
-
-    match result {
-        Ok(Ok(content)) => {
-            assert!(!content.is_empty(), "Content should not be empty");
-            assert!(
-                content.contains("<html>") || content.contains("<!DOCTYPE html>"),
-                "Content should contain HTML markup"
-            );
-            println!("✓ Browser head test succeeded");
-        }
-        Ok(Err(TarziError::Browser(_))) => {
-            println!("✓ Browser head test passed (browser not available in CI)");
-        }
-        Ok(Err(e)) => {
-            println!("✓ Browser head test passed (error expected in CI): {e:?}");
-        }
-        Err(_) => {
-            println!("✓ Browser head test passed (timeout - expected in CI)");
-        }
-    }
-
-    // Cleanup
-    fetcher.shutdown().await;
-}
-
-#[tokio::test]
 async fn test_fetch_raw_browser() {
     // Skip test if WebDriver is not available
     if !is_webdriver_available().await {
@@ -481,9 +408,7 @@ async fn test_fetch_raw_browser() {
     let mut fetcher = WebFetcher::new();
 
     // Test fetching raw content with browser
-    let result = fetcher
-        .fetch_raw("https://httpbin.org/html", FetchMode::BrowserHeadless)
-        .await;
+    let result = fetcher.fetch_raw("https://httpbin.org/html").await;
 
     // This might fail in CI environments without proper browser setup
     match result {
@@ -524,9 +449,7 @@ async fn test_fetch_sequential_requests() {
     let mut success_count = 0;
     for url in reachable_urls {
         let mut fetcher = WebFetcher::new();
-        let result = fetcher
-            .fetch(url, FetchMode::PlainRequest, Format::Html)
-            .await;
+        let result = fetcher.fetch(url, Format::Html).await;
 
         match result {
             Ok(content) => {
@@ -561,11 +484,7 @@ async fn test_fetch_large_response() {
     let mut fetcher = create_test_fetcher();
     let test_timeout = Duration::from_secs(60);
 
-    let result = tokio::time::timeout(
-        test_timeout,
-        fetcher.fetch(test_url, FetchMode::PlainRequest, Format::Html),
-    )
-    .await;
+    let result = tokio::time::timeout(test_timeout, fetcher.fetch(test_url, Format::Html)).await;
 
     match result {
         Ok(Ok(content)) => {
@@ -601,9 +520,7 @@ async fn test_fetch_404_error() {
     }
 
     let mut fetcher = create_test_fetcher();
-    let result = fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Html)
-        .await;
+    let result = fetcher.fetch(test_url, Format::Html).await;
 
     match result {
         Err(TarziError::Http(_)) => {
@@ -629,9 +546,7 @@ async fn test_fetch_500_error() {
     }
 
     let mut fetcher = create_test_fetcher();
-    let result = fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Html)
-        .await;
+    let result = fetcher.fetch(test_url, Format::Html).await;
 
     match result {
         Err(TarziError::Http(_)) => {

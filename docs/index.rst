@@ -83,7 +83,7 @@ Python
    markdown = tarzi.convert_html("<h1>Hello</h1>", "markdown")
 
    # Fetch web page
-   content = tarzi.fetch_url("https://example.com", mode="browser_headless")
+   content = tarzi.fetch_url("https://example.com", )
 
    # Search web (API → plain HTTP → browser)
    results = tarzi.search_web("python programming", 10)
@@ -104,7 +104,7 @@ Rust
 
 .. code-block:: rust
 
-   use tarzi::{config::Config, Converter, WebFetcher, SearchEngine, Format, FetchMode};
+   use tarzi::{config::Config, Converter, WebFetcher, SearchEngine, Format};
 
    #[tokio::main]
    async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -116,7 +116,6 @@ Rust
        let mut fetcher = WebFetcher::new();
        let content = fetcher.fetch(
            "https://example.com",
-           FetchMode::BrowserHeadless,
            Format::Markdown
        ).await?;
 
@@ -146,12 +145,11 @@ CLI
    tarzi convert --input "<h1>Hello</h1>" --format markdown
 
    # Fetch web page with JavaScript rendering
-   tarzi fetch --url "https://example.com" --mode browser_headless --format json
+   tarzi fetch --url "https://example.com" --format json
 
    # Search and fetch content
    tarzi search-and-fetch \
      --query "agentic AI" \
-     --fetch-mode plain_request \
      --format markdown \
      --limit 5
 

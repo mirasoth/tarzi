@@ -13,7 +13,7 @@ browser = {str(browser).lower()}
 limit = {limit}
 
 [fetcher]
-mode = "plain_request"
+browser = false
 """
     config = tarzi.Config.from_str(config_str)
     search = tarzi.SearchEngine.from_config(config)

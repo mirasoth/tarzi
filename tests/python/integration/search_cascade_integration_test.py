@@ -40,7 +40,6 @@ def _make_engine(engine: str, browser: bool = True, **search_extras) -> tarzi.Se
     config = tarzi.Config.from_str(
         f"""
 [fetcher]
-mode = "plain_request"
 
 [search]
 engine = "{engine}"
@@ -391,7 +390,7 @@ def test_search_with_content_duckduckgo():
     search = _make_engine("duckduckgo", browser=False)
     try:
         try:
-            pairs = search.search_with_content(TEST_QUERY, 1, "plain_request", "markdown")
+            pairs = search.search_with_content(TEST_QUERY, 1, "markdown")
             assert isinstance(pairs, list)
             assert len(pairs) <= 1
         except Exception as e:

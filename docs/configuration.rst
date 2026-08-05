@@ -41,7 +41,7 @@ Tarzi has **no** product API key; use engine keys only (``BRAVE_API_KEY``, ``SER
    export TARZI_SEARCH_ENGINE=brave
    export TARZI_SEARCH_BROWSER=true
    export TARZI_SEARCH_LIMIT=10
-   export TARZI_FETCHER_MODE=browser_headless
+   export TARZI_FETCHER_BROWSER=true
    export TARZI_FETCHER_FORMAT=markdown
    export TARZI_USER_AGENT="Mozilla/5.0 ..."
    export TARZI_FETCHER_TIMEOUT=30
@@ -75,9 +75,11 @@ Migrating from ``tarzi.toml``
    * - ``[search] mode`` (removed)
      - N/A — cascade is always on; use ``TARZI_SEARCH_BROWSER``
    * - ``[search] api_key``
-     - ``BRAVE_API_KEY`` / ``SERPER_API_KEY``
-   * - ``[fetcher] mode``
-     - ``TARZI_FETCHER_MODE``
+     - ``BRAVE_API_KEY`` / ``SERPER_API_KEY`` / ``TAVILY_API_KEY`` / ``GEMINI_API_KEY``
+   * - ``[fetcher] mode`` (removed)
+     - N/A — cascade is always on; use ``TARZI_FETCHER_BROWSER``
+   * - ``[fetcher] browser``
+     - ``TARZI_FETCHER_BROWSER``
    * - ``[fetcher] format``
      - ``TARZI_FETCHER_FORMAT``
    * - ``[fetcher] user_agent``

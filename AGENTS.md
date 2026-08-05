@@ -56,7 +56,7 @@ tarzi/
 
 ## Implementation Considerations for Tarzi
 
-- **Default engine configuration**: ChromeDriver as default webdriver. `duckduckgo,bing,brave` as default engine failover. Markdown as defalt fetch format.
+- **Default engine configuration**: ChromeDriver as default webdriver. `duckduckgo,bing,brave` as default engine failover. Markdown as default fetch format. Browser fallback is always headless.
 
 ## Testing Strategy & Guidelines
 

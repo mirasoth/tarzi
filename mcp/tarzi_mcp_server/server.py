@@ -85,16 +85,16 @@ def search_web(
 @mcp.tool()
 def fetch(
     url: str, 
-    format: str = "html", 
-    mode: str = "plain_request"
+    format: str = "html"
 ) -> FetchResult:
     """
     Fetch content from a web URL using Tarzi.
     
+    Access cascade: plain HTTP → headless browser (when enabled).
+    
     Args:
         url: URL to fetch
         format: Output format - 'html', 'markdown', 'json', or 'yaml'
-        mode: Fetch mode - 'plain_request' for simple HTTP, 'browser_headless' for headless browser, 'browser_headed' for browser with head
         
     Returns:
         Fetched content in the specified format
@@ -104,19 +104,16 @@ def fetch(
         if format not in ["html", "markdown", "json", "yaml"]:
             raise ValueError("Format must be 'html', 'markdown', 'json', or 'yaml'")
             
-        # Validate mode
-        if mode not in ["plain_request", "browser_headless", "browser_headed"]:
-            raise ValueError("Mode must be 'plain_request', 'browser_headless', or 'browser_headed'")
-            
         # Fetch content using tarzi
-        content = tarzi.fetch(url, mode, format)
+        content = tarzi.fetch(url, format)
         
-        logger.info(f"URL fetched successfully: {url} in {format} format using {mode} mode")
+        logger.info(f"URL fetched successfully: {url} in {format} format")
         return FetchResult(content=content, format=format)
         
     except Exception as e:
         logger.error(f"URL fetch failed: {str(e)}")
         raise ValueError(f"URL fetch failed: {str(e)}")
+
 
 
 @mcp.tool()
@@ -151,32 +148,28 @@ def convert_html(html_content: str, output_format: str = "markdown") -> Conversi
 def search_with_content(
     query: str,
     limit: int = 5,
-    fetch_mode: str = "plain_request",
     content_format: str = "markdown"
 ) -> List[Dict[str, Any]]:
     """
     Search the web and fetch content from each result using Tarzi.
     
+    Page content uses the fetcher cascade: plain HTTP → headless browser.
+    
     Args:
         query: Search query string
         limit: Maximum number of results to process (default: 5)
-        fetch_mode: Fetch mode - 'plain_request' for simple HTTP, 'browser_headless' for headless browser, 'browser_headed' for browser with head
         content_format: Content format - 'html', 'markdown', 'json', or 'yaml'
         
     Returns:
         List of search results with fetched content
     """
     try:
-        # Validate parameters
-        if fetch_mode not in ["plain_request", "browser_headless", "browser_headed"]:
-            raise ValueError("Fetch mode must be 'plain_request', 'browser_headless', or 'browser_headed'")
-            
         if content_format not in ["html", "markdown", "json", "yaml"]:
             raise ValueError("Content format must be 'html', 'markdown', 'json', or 'yaml'")
             
         # Perform search and fetch
         results_with_content = tarzi.search_with_content(
-            query, limit, fetch_mode, content_format
+            query, limit, content_format
         )
         
         # Convert to structured results
@@ -199,6 +192,7 @@ def search_with_content(
         raise ValueError(f"Search and fetch failed: {str(e)}")
 
 
+
 @mcp.resource("tarzi://config")
 def get_config() -> str:
     """Get current Tarzi configuration."""
@@ -214,7 +208,7 @@ def get_config() -> str:
 - Multi-engine failover: TARZI_SEARCH_ENGINE=duckduckgo,bing,brave (default)
 - API keys (env): BRAVE_API_KEY, SERPER_API_KEY, TAVILY_API_KEY, GEMINI_API_KEY, SEARX_HOST
 - Engines: bing, google, google_serper, brave, duckduckgo, baidu, sogou_weixin, tavily, googleai, searxng
-- Available fetch modes: plain_request, browser_headless, browser_headed
+- Fetch cascade: plain HTTP → headless browser (TARZI_FETCHER_BROWSER)
 - Supported formats: html, markdown, json, yaml
 """
     except Exception as e:

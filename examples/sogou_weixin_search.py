@@ -19,7 +19,7 @@ limit = 10
 
 [fetcher]
 web_driver = "chromedriver"
-mode = "head"
+browser = true
 format = "markdown"
 """
 

@@ -87,16 +87,12 @@ except ImportError as e:
         def __repr__(self):
             return "WebFetcher()"
 
-        def fetch(self, url, mode, format_type):
-            if mode == "invalid_mode":
-                raise ValueError("Invalid fetch mode: invalid_mode")
+        def fetch(self, url, format_type="html"):
             if format_type == "invalid_format":
                 raise ValueError("Invalid format: invalid_format")
             return f"<html><body>Mock content from {url}</body></html>"
 
-        def fetch(self, url, mode):
-            if mode == "invalid_mode":
-                raise ValueError("Invalid fetch mode: invalid_mode")
+        def fetch_raw(self, url):
             return f"Raw mock content from {url}"
 
         @classmethod
@@ -118,9 +114,7 @@ except ImportError as e:
         def search(self, query, limit):
             return [MockSearchResult() for _ in range(min(limit, 2))]
 
-        def search_with_content(self, query, limit, fetch_mode, format_type):
-            if fetch_mode == "invalid_fetch_mode":
-                raise ValueError("Invalid fetch mode: invalid_fetch_mode")
+        def search_with_content(self, query, limit, format_type="markdown"):
             if format_type == "invalid_format":
                 raise ValueError("Invalid format: invalid_format")
             results = self.search(query, limit)
@@ -167,25 +161,21 @@ except ImportError as e:
             return f"Mock {format_type} conversion of content"
 
         @staticmethod
-        def fetch(url, mode, format_type):
-            if mode == "invalid_mode":
-                raise ValueError("Invalid fetch mode: invalid_mode")
+        def fetch(url, format_type="html"):
             if format_type == "invalid_format":
                 raise ValueError("Invalid format: invalid_format")
             return f"<html><body>Mock content from {url}</body></html>"
 
         @staticmethod
-        def fetch_url(url, mode="plain_request", format_type="html"):
-            return MockTarzi.fetch(url, mode, format_type)
+        def fetch_url(url, format_type="html"):
+            return MockTarzi.fetch(url, format_type)
 
         @staticmethod
         def search_web(query, limit):
             return [MockSearchResult() for _ in range(min(limit, 2))]
 
         @staticmethod
-        def search_with_content(query, limit, fetch_mode, format_type):
-            if fetch_mode == "invalid_fetch_mode":
-                raise ValueError("Invalid fetch mode: invalid_fetch_mode")
+        def search_with_content(query, limit, format_type="markdown"):
             if format_type == "invalid_format":
                 raise ValueError("Invalid format: invalid_format")
             results = [MockSearchResult() for _ in range(min(limit, 2))]

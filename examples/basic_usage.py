@@ -15,7 +15,7 @@ def main():
             <p>This is a <strong>test</strong> page with <a href="https://example.com">a link</a>.</p>
             <img src="image.jpg" alt="Test image">
         </body>
-    <
+    </html>
     """
 
     # Converter
@@ -23,16 +23,14 @@ def main():
     yaml_output = converter.convert(html_input, "yaml")
     print(f"YAML output:\n{yaml_output}\n")
 
-    # WebFetcher with different modes
+    # WebFetcher (plain HTTP → headless browser cascade)
     fetcher = tarzi.WebFetcher()
     try:
-        # Plain request mode
-        content = fetcher.fetch("https://httpbin.org/html", "plain_request", "html")
-        print(f"Plain request - Fetched content length: {len(content)}")
+        content = fetcher.fetch("https://httpbin.org/html", "html")
+        print(f"Fetched content length: {len(content)}")
 
-        # Raw fetch mode
-        raw_content = fetcher.fetch("https://httpbin.org/html", "plain_request", "html")
-        print(f"Raw fetch - Content length: {len(raw_content)}")
+        raw_content = fetcher.fetch_raw("https://httpbin.org/html")
+        print(f"Raw fetch content length: {len(raw_content)}")
     except Exception as e:
         print(f"Fetch failed: {e}")
 
@@ -56,6 +54,7 @@ def main():
 timeout = 30
 format = "markdown"
 web_driver = "chromedriver"
+browser = true
 
 [search]
 engine = "brave,duckduckgo"

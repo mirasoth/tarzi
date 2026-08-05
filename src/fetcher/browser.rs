@@ -46,7 +46,6 @@ impl BrowserManager {
     pub async fn create_browser_with_user_data(
         &mut self,
         user_data_dir: Option<PathBuf>,
-        headless: bool,
         instance_id: Option<String>,
     ) -> Result<String> {
         let webdriver_url = self.get_or_create_webdriver_endpoint().await?;
@@ -60,8 +59,8 @@ impl BrowserManager {
             format!("browser_{}", timestamp % 1_000_000)
         });
         info!(
-            "Creating new browser instance with ID: {} (headless: {}, user_data_dir: {:?})",
-            instance_id, headless, user_data_dir
+            "Creating new headless browser instance with ID: {} (user_data_dir: {:?})",
+            instance_id, user_data_dir
         );
 
         // Determine actual driver type that was started by checking managed driver info
@@ -89,14 +88,14 @@ impl BrowserManager {
         let browser_result = match actual_driver_type {
             "firefox" => {
                 let mut caps = DesiredCapabilities::firefox();
-                self.configure_firefox_capabilities(&mut caps, headless, &user_data_dir)
+                self.configure_firefox_capabilities(&mut caps, &user_data_dir)
                     .await?;
                 tokio::time::timeout(BROWSER_LAUNCH_TIMEOUT, WebDriver::new(&webdriver_url, caps))
                     .await
             }
             _ => {
                 let mut caps = DesiredCapabilities::chrome();
-                self.configure_browser_capabilities(&mut caps, headless, &user_data_dir)
+                self.configure_browser_capabilities(&mut caps, &user_data_dir)
                     .await?;
                 tokio::time::timeout(BROWSER_LAUNCH_TIMEOUT, WebDriver::new(&webdriver_url, caps))
                     .await
@@ -172,15 +171,12 @@ impl BrowserManager {
     async fn configure_browser_capabilities(
         &self,
         caps: &mut impl ChromiumLikeCapabilities,
-        headless: bool,
         user_data_dir: &Option<PathBuf>,
     ) -> Result<()> {
-        if headless {
-            caps.add_arg("--headless").map_err(|e| {
-                error!("Failed to add headless arg: {}", e);
-                TarziError::Browser(format!("Failed to add headless arg: {e}"))
-            })?;
-        }
+        caps.add_arg("--headless").map_err(|e| {
+            error!("Failed to add headless arg: {}", e);
+            TarziError::Browser(format!("Failed to add headless arg: {e}"))
+        })?;
 
         // Add user data directory if provided
         if let Some(user_data_path) = user_data_dir {
@@ -225,15 +221,12 @@ impl BrowserManager {
     async fn configure_firefox_capabilities(
         &self,
         caps: &mut thirtyfour::FirefoxCapabilities,
-        headless: bool,
         user_data_dir: &Option<PathBuf>,
     ) -> Result<()> {
-        if headless {
-            caps.add_arg("--headless").map_err(|e| {
-                error!("Failed to add headless arg: {}", e);
-                TarziError::Browser(format!("Failed to add headless arg: {e}"))
-            })?;
-        }
+        caps.add_arg("--headless").map_err(|e| {
+            error!("Failed to add headless arg: {}", e);
+            TarziError::Browser(format!("Failed to add headless arg: {e}"))
+        })?;
 
         // Add profile directory if provided (Firefox uses --profile instead of --user-data-dir)
         if let Some(user_data_path) = user_data_dir {
@@ -274,11 +267,11 @@ impl BrowserManager {
     }
 
     /// Get or create a browser instance
-    pub async fn get_or_create_browser(&mut self, headless: bool) -> Result<&WebDriver> {
+    pub async fn get_or_create_browser(&mut self) -> Result<&WebDriver> {
         if self.browsers.is_empty() {
-            info!("Creating new browser instance (headless: {})...", headless);
+            info!("Creating new headless browser instance...");
             let instance_id = self
-                .create_browser_with_user_data(None, headless, Some("default".to_string()))
+                .create_browser_with_user_data(None, Some("default".to_string()))
                 .await?;
             info!("Browser instance created with ID: {}", instance_id);
         } else {
@@ -287,17 +280,13 @@ impl BrowserManager {
         Ok(&self.browsers.values().next().unwrap().0)
     }
 
-    /// Create multiple browser instances for parallel processing
+    /// Create multiple headless browser instances for parallel processing
     pub async fn create_multiple_browsers(
         &mut self,
         count: usize,
-        headless: bool,
         base_instance_id: Option<String>,
     ) -> Result<Vec<String>> {
-        info!(
-            "Creating {} browser instances (headless: {})",
-            count, headless
-        );
+        info!("Creating {} headless browser instances", count);
 
         let base_id = base_instance_id.unwrap_or_else(|| "browser".to_string());
         let mut instance_ids = Vec::new();
@@ -305,7 +294,7 @@ impl BrowserManager {
         for i in 0..count {
             let instance_id = format!("{base_id}_{i}");
             let id = self
-                .create_browser_with_user_data(None, headless, Some(instance_id.clone()))
+                .create_browser_with_user_data(None, Some(instance_id.clone()))
                 .await?;
             instance_ids.push(id);
         }
@@ -521,7 +510,6 @@ impl BrowserManager {
     pub async fn create_browser_with_proxy(
         &mut self,
         user_data_dir: Option<PathBuf>,
-        headless: bool,
         instance_id: Option<String>,
         proxy: Option<String>,
     ) -> Result<String> {
@@ -535,7 +523,7 @@ impl BrowserManager {
 
         // Create browser with proxy
         let result = self
-            .create_browser_with_user_data(user_data_dir, headless, instance_id)
+            .create_browser_with_user_data(user_data_dir, instance_id)
             .await;
 
         // Restore original proxy configuration
@@ -747,7 +735,7 @@ mod tests {
         // Test Firefox capabilities
         let mut firefox_caps = DesiredCapabilities::firefox();
         let result = manager
-            .configure_firefox_capabilities(&mut firefox_caps, true, &None)
+            .configure_firefox_capabilities(&mut firefox_caps, &None)
             .await;
         assert!(
             result.is_ok(),
@@ -757,7 +745,7 @@ mod tests {
         // Test Chrome capabilities
         let mut chrome_caps = DesiredCapabilities::chrome();
         let result = manager
-            .configure_browser_capabilities(&mut chrome_caps, true, &None)
+            .configure_browser_capabilities(&mut chrome_caps, &None)
             .await;
         assert!(
             result.is_ok(),
@@ -769,7 +757,7 @@ mod tests {
         let user_data_dir = Some(temp_dir.path().to_path_buf());
         let mut chrome_caps_with_dir = DesiredCapabilities::chrome();
         let result = manager
-            .configure_browser_capabilities(&mut chrome_caps_with_dir, false, &user_data_dir)
+            .configure_browser_capabilities(&mut chrome_caps_with_dir, &user_data_dir)
             .await;
         assert!(
             result.is_ok(),
@@ -786,7 +774,7 @@ mod tests {
 
         let mut chrome_caps = DesiredCapabilities::chrome();
         let result = manager
-            .configure_browser_capabilities(&mut chrome_caps, true, &None)
+            .configure_browser_capabilities(&mut chrome_caps, &None)
             .await;
         assert!(
             result.is_ok(),
@@ -828,7 +816,7 @@ mod tests {
         let invalid_dir = Some(PathBuf::from("/non/existent/path/that/should/not/exist"));
         let mut chrome_caps = DesiredCapabilities::chrome();
         let result = manager
-            .configure_browser_capabilities(&mut chrome_caps, false, &invalid_dir)
+            .configure_browser_capabilities(&mut chrome_caps, &invalid_dir)
             .await;
         // This should still succeed as the path is only added as an argument
         assert!(result.is_ok());

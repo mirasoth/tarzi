@@ -83,7 +83,6 @@ class TarziMCPClient:
                     result = await session.call_tool("fetch", {
                         "url": url,
                         "format": "markdown",
-                        "mode": "plain_request"
                     })
                     
                     logger.info(f"Fetch result length: {len(str(result.content))} characters")

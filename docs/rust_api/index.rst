@@ -22,7 +22,7 @@ Quick Reference
 
 **Enums**
    - ``Format`` - Output formats (Markdown, JSON, YAML, HTML)
-   - ``FetchMode`` - Fetching strategies
+   - ``WebFetcher`` - Plain HTTP → headless browser cascade
    - ``AccessMethod`` - Search access methods (Api, PlainHttp, Browser)
    - ``AccessMethod`` - Resolved access path (Api, PlainHttp, Browser)
    - ``SearchEngineType`` - Supported search engines
@@ -33,7 +33,7 @@ Basic Usage
 
 .. code-block:: rust
 
-   use tarzi::{Converter, WebFetcher, SearchEngine, Format, FetchMode};
+   use tarzi::{Converter, WebFetcher, SearchEngine, Format};
    use tarzi::search::{ParserFactory, SearchEngineType};
 
    #[tokio::main]
@@ -46,7 +46,6 @@ Basic Usage
        let mut fetcher = WebFetcher::new();
        let content = fetcher.fetch(
            "https://example.com",
-           FetchMode::PlainRequest,
            Format::Markdown
        ).await?;
 

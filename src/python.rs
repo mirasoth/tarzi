@@ -1,7 +1,7 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 #![allow(non_local_definitions)]
 use crate::config::Config;
-use crate::{Converter, FetchMode, Format, SearchEngine, WebFetcher};
+use crate::{Converter, Format, SearchEngine, WebFetcher};
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 use std::future::Future;
@@ -195,25 +195,21 @@ impl PyWebFetcher {
         })
     }
 
-    /// Fetch a web page and convert to specified format
+    /// Fetch a web page and convert to specified format.
+    ///
+    /// Access cascade: plain HTTP → browser (when enabled).
     ///
     /// Args:
     ///     url (str): URL to fetch
-    ///     mode (str): Fetch mode ("plain_request", "browser_head", "browser_headless")
     ///     format (str): Output format ("html", "markdown", "json", "yaml")
     ///     
     /// Returns:
     ///     str: Fetched and converted content
     ///     
     /// Raises:
-    ///     ValueError: If mode or format is invalid
+    ///     ValueError: If format is invalid
     ///     RuntimeError: If fetching fails
-    fn fetch(&mut self, py: Python<'_>, url: &str, mode: &str, format: &str) -> PyResult<String> {
-        let parsed_mode = FetchMode::from_str(mode).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid fetch mode '{mode}': {e}"
-            ))
-        })?;
+    fn fetch(&mut self, py: Python<'_>, url: &str, format: &str) -> PyResult<String> {
         let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
@@ -222,9 +218,10 @@ impl PyWebFetcher {
 
         let owned_url = url.to_owned();
         let fetcher = &mut self.inner;
-        block_on_without_gil(py, async move {
-            fetcher.fetch(&owned_url, parsed_mode, parsed_format).await
-        })?
+        block_on_without_gil(
+            py,
+            async move { fetcher.fetch(&owned_url, parsed_format).await },
+        )?
         .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                 "Failed to fetch '{url}': {e}"
@@ -232,64 +229,50 @@ impl PyWebFetcher {
         })
     }
 
-    /// Fetch raw HTML content from a web page
+    /// Fetch raw HTML content from a web page.
+    ///
+    /// Access cascade: plain HTTP → browser (when enabled).
     ///
     /// Args:
     ///     url (str): URL to fetch
-    ///     mode (str): Fetch mode ("plain_request", "browser_head", "browser_headless")
     ///     
     /// Returns:
     ///     str: Raw HTML content
     ///     
     /// Raises:
-    ///     ValueError: If mode is invalid
     ///     RuntimeError: If fetching fails
-    fn fetch_raw(&mut self, py: Python<'_>, url: &str, mode: &str) -> PyResult<String> {
-        let parsed_mode = FetchMode::from_str(mode).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid fetch mode '{mode}': {e}"
-            ))
-        })?;
-
+    fn fetch_raw(&mut self, py: Python<'_>, url: &str) -> PyResult<String> {
         let owned_url = url.to_owned();
         let fetcher = &mut self.inner;
-        block_on_without_gil(py, async move {
-            fetcher.fetch_raw(&owned_url, parsed_mode).await
-        })?
-        .map_err(|e| {
+        block_on_without_gil(py, async move { fetcher.fetch_raw(&owned_url).await })?.map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                 "Failed to fetch raw content from '{url}': {e}"
             ))
         })
     }
 
-    /// Fetch a web page through a proxy
+    /// Fetch a web page through a proxy.
+    ///
+    /// Access cascade: plain HTTP via proxy → browser via proxy (when enabled).
     ///
     /// Args:
     ///     url (str): URL to fetch
     ///     proxy (str): Proxy URL (e.g., "http://proxy:port")
-    ///     mode (str): Fetch mode ("plain_request", "browser_head", "browser_headless")
     ///     format (str): Output format ("html", "markdown", "json", "yaml")
     ///     
     /// Returns:
     ///     str: Fetched and converted content
     ///     
     /// Raises:
-    ///     ValueError: If mode or format is invalid
+    ///     ValueError: If format is invalid
     ///     RuntimeError: If fetching fails
     fn fetch_with_proxy(
         &mut self,
         py: Python<'_>,
         url: &str,
         proxy: &str,
-        mode: &str,
         format: &str,
     ) -> PyResult<String> {
-        let parsed_mode = FetchMode::from_str(mode).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid fetch mode '{mode}': {e}"
-            ))
-        })?;
         let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
@@ -301,7 +284,7 @@ impl PyWebFetcher {
         let fetcher = &mut self.inner;
         block_on_without_gil(py, async move {
             fetcher
-                .fetch_with_proxy(&owned_url, &owned_proxy, parsed_mode, parsed_format)
+                .fetch_with_proxy(&owned_url, &owned_proxy, parsed_format)
                 .await
         })?
         .map_err(|e| {
@@ -394,33 +377,28 @@ impl PySearchEngine {
             })
     }
 
-    /// Search for web pages and fetch their content
+    /// Search for web pages and fetch their content.
+    ///
+    /// Page content uses the fetcher access cascade (plain HTTP → browser).
     ///
     /// Args:
     ///     query (str): Search query
     ///     limit (int): Maximum number of results
-    ///     fetch_mode (str): Fetch mode ("plain_request", "browser_head", "browser_headless")
     ///     format (str): Output format ("html", "markdown", "json", "yaml")
     ///     
     /// Returns:
     ///     List[Tuple[SearchResult, str]]: List of (result, content) pairs
     ///     
     /// Raises:
-    ///     ValueError: If fetch_mode, or format is invalid
+    ///     ValueError: If format is invalid
     ///     RuntimeError: If search or fetch fails
     fn search_with_content(
         &mut self,
         py: Python<'_>,
         query: &str,
         limit: usize,
-        fetch_mode: &str,
         format: &str,
     ) -> PyResult<Vec<(PySearchResult, String)>> {
-        let parsed_fetch_mode = FetchMode::from_str(fetch_mode).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid fetch mode '{fetch_mode}': {e}"
-            ))
-        })?;
         let parsed_format = Format::from_str(format).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid format '{format}': {e}"
@@ -431,7 +409,7 @@ impl PySearchEngine {
         let engine = &mut self.inner;
         block_on_without_gil(py, async move {
             engine
-                .search_with_content(&owned_query, limit, parsed_fetch_mode, parsed_format)
+                .search_with_content(&owned_query, limit, parsed_format)
                 .await
         })?
         .map(|results| {
@@ -582,6 +560,11 @@ impl PyConfig {
     /// Override whether browser may be used as a search access fallback
     fn set_search_browser(&mut self, browser: bool) {
         self.inner.search.browser = browser;
+    }
+
+    /// Override whether browser may be used as a fetch access fallback
+    fn set_fetcher_browser(&mut self, browser: bool) {
+        self.inner.fetcher.browser = browser;
     }
 
     /// Override search result limit

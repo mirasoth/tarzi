@@ -16,7 +16,6 @@ async fn main() -> Result<()> {
     let engine_type = SearchEngineType::from_str(&config.search.engine).unwrap();
     config.search.query_pattern = engine_type.get_query_pattern();
     config.fetcher.web_driver = "chromedriver".to_string();
-    config.fetcher.mode = "browser_head".to_string();
 
     // Create search engine from config
     let mut search_engine = SearchEngine::from_config(&config);

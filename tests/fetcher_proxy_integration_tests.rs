@@ -12,22 +12,17 @@
 mod proxy_tests {
     use tarzi::config::Config;
     use tarzi::converter::Format;
-    use tarzi::fetcher::{FetchMode, WebFetcher};
+    use tarzi::fetcher::WebFetcher;
 
     const TEST_PROXY: &str = "http://127.0.0.1:7890";
 
     #[tokio::test]
-    async fn test_fetch_with_proxy_plain_request_httpbin() {
+    async fn test_fetch_with_proxy_httpbin() {
         let mut fetcher = WebFetcher::new();
 
-        // Test fetching with proxy in plain request mode
+        // Test fetching with proxy in plain HTTP path
         let result = fetcher
-            .fetch_with_proxy(
-                "https://httpbin.org/html",
-                TEST_PROXY,
-                FetchMode::PlainRequest,
-                Format::Html,
-            )
+            .fetch_with_proxy("https://httpbin.org/html", TEST_PROXY, Format::Html)
             .await;
 
         match result {
@@ -47,24 +42,19 @@ mod proxy_tests {
                         "Received 502 from httpbin.org - likely temporary issue, test considered passed"
                     );
                 } else {
-                    panic!("Failed to fetch with proxy in plain request mode: {e:?}");
+                    panic!("Failed to fetch with proxy in plain HTTP path: {e:?}");
                 }
             }
         }
     }
 
     #[tokio::test]
-    async fn test_fetch_with_proxy_plain_request_json() {
+    async fn test_fetch_with_proxy_json() {
         let mut fetcher = WebFetcher::new();
 
         // Test fetching JSON with proxy
         let result = fetcher
-            .fetch_with_proxy(
-                "https://httpbin.org/json",
-                TEST_PROXY,
-                FetchMode::PlainRequest,
-                Format::Json,
-            )
+            .fetch_with_proxy("https://httpbin.org/json", TEST_PROXY, Format::Json)
             .await;
 
         match result {
@@ -96,20 +86,15 @@ mod proxy_tests {
 
     #[tokio::test]
     #[ignore = "Browser tests disabled due to WebDriver runtime drop issues"]
-    async fn test_fetch_with_proxy_browser_headless() {
+    async fn test_fetch_with_proxy_browser() {
         use tokio::task;
 
         let result = {
             let mut fetcher = WebFetcher::new();
 
-            // Test fetching with proxy in browser headless mode
+            // Test fetching with proxy in headless browser path
             let fetch_result = fetcher
-                .fetch_with_proxy(
-                    "https://httpbin.org/html",
-                    TEST_PROXY,
-                    FetchMode::BrowserHeadless,
-                    Format::Html,
-                )
+                .fetch_with_proxy("https://httpbin.org/html", TEST_PROXY, Format::Html)
                 .await;
 
             // Clean up any managed drivers before dropping
@@ -147,59 +132,7 @@ mod proxy_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Browser tests disabled due to WebDriver runtime drop issues"]
-    async fn test_fetch_with_proxy_browser_head() {
-        use tokio::task;
-
-        let result = {
-            let mut fetcher = WebFetcher::new();
-
-            // Test fetching with proxy in browser head mode
-            let fetch_result = fetcher
-                .fetch_with_proxy(
-                    "https://httpbin.org/html",
-                    TEST_PROXY,
-                    FetchMode::BrowserHead,
-                    Format::Html,
-                )
-                .await;
-
-            // Clean up any managed drivers before dropping
-            let _ = fetcher.cleanup_managed_driver().await;
-
-            // Drop the fetcher in a blocking context to avoid runtime drop issues
-            task::spawn_blocking(move || drop(fetcher)).await.unwrap();
-
-            fetch_result
-        };
-
-        match result {
-            Ok(content) => {
-                assert!(!content.is_empty());
-                assert!(content.contains("<html>") || content.contains("<!DOCTYPE html>"));
-                println!(
-                    "Successfully fetched content with proxy (browser head): {} characters",
-                    content.len()
-                );
-            }
-            Err(e) => {
-                // Browser automation might fail due to various reasons (no driver, etc.)
-                println!("Browser head test failed (expected in some environments): {e:?}");
-                // We'll consider this test passed if it's a browser-related error
-                let error_str = format!("{e:?}");
-                assert!(
-                    error_str.contains("Browser")
-                        || error_str.contains("WebDriver")
-                        || error_str.contains("chromedriver")
-                        || error_str.contains("geckodriver"),
-                    "Unexpected error type: {e:?}"
-                );
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_fetch_with_config_proxy_plain_request() {
+    async fn test_fetch_with_config_proxy() {
         // Test fetching with proxy configured via Config
         let mut config = Config::new();
         config.fetcher.proxy = Some(TEST_PROXY.to_string());
@@ -207,11 +140,7 @@ mod proxy_tests {
         let mut fetcher = WebFetcher::from_config(&config);
 
         let result = fetcher
-            .fetch(
-                "https://httpbin.org/html",
-                FetchMode::PlainRequest,
-                Format::Html,
-            )
+            .fetch("https://httpbin.org/html", Format::Html)
             .await;
 
         match result {
@@ -231,7 +160,7 @@ mod proxy_tests {
                         "Received 502 from httpbin.org - likely temporary issue, test considered passed"
                     );
                 } else {
-                    panic!("Failed to fetch with config proxy in plain request mode: {e:?}");
+                    panic!("Failed to fetch with config proxy in plain HTTP path: {e:?}");
                 }
             }
         }
@@ -239,10 +168,10 @@ mod proxy_tests {
 
     #[tokio::test]
     #[ignore = "Browser tests disabled due to WebDriver runtime drop issues"]
-    async fn test_fetch_with_config_proxy_browser_headless() {
+    async fn test_fetch_with_config_proxy_browser() {
         use tokio::task;
 
-        // Test fetching with proxy configured via Config for browser headless mode
+        // Test fetching with proxy configured via Config for headless browser path
         let mut config = Config::new();
         config.fetcher.proxy = Some(TEST_PROXY.to_string());
 
@@ -250,11 +179,7 @@ mod proxy_tests {
             let mut fetcher = WebFetcher::from_config(&config);
 
             let fetch_result = fetcher
-                .fetch(
-                    "https://httpbin.org/html",
-                    FetchMode::BrowserHeadless,
-                    Format::Html,
-                )
+                .fetch("https://httpbin.org/html", Format::Html)
                 .await;
 
             // Clean up any managed drivers before dropping
@@ -306,7 +231,6 @@ mod proxy_tests {
             let browser_id = fetcher
                 .create_browser_with_proxy(
                     None,
-                    true, // headless
                     Some("proxy_test_browser".to_string()),
                     Some(TEST_PROXY.to_string()),
                 )
@@ -401,9 +325,7 @@ mod proxy_tests {
         ];
 
         for (format, format_name, url) in test_cases {
-            let result = fetcher
-                .fetch_with_proxy(url, TEST_PROXY, FetchMode::PlainRequest, format)
-                .await;
+            let result = fetcher.fetch_with_proxy(url, TEST_PROXY, format).await;
 
             match result {
                 Ok(content) => {
@@ -435,12 +357,7 @@ mod proxy_tests {
 
         // Test proxy with HTTPS sites using httpbin (more reliable)
         let result = fetcher
-            .fetch_with_proxy(
-                "https://httpbin.org/html",
-                TEST_PROXY,
-                FetchMode::PlainRequest,
-                Format::Html,
-            )
+            .fetch_with_proxy("https://httpbin.org/html", TEST_PROXY, Format::Html)
             .await;
 
         assert!(
@@ -475,11 +392,7 @@ mod proxy_tests {
         let mut fetcher = WebFetcher::from_config(&config);
 
         let result = fetcher
-            .fetch(
-                "https://httpbin.org/html",
-                FetchMode::PlainRequest,
-                Format::Html,
-            )
+            .fetch("https://httpbin.org/html", Format::Html)
             .await;
 
         // Restore original environment

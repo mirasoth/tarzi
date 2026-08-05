@@ -1,4 +1,4 @@
-use tarzi::{FetchMode, Format, Result, SearchEngine, WebFetcher, config::Config};
+use tarzi::{Format, Result, SearchEngine, WebFetcher, config::Config};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,28 +11,20 @@ async fn main() -> Result<()> {
     let mut config = Config::load().unwrap_or_default();
     config.fetcher.web_driver = "chromedriver".to_string();
 
-    // Example 1: Using the fetcher module directly
-    println!("1. Fetching content with different modes:");
+    // Example 1: Using the fetcher module (plain HTTP → headless browser cascade)
+    println!("1. Fetching content with cascade:");
 
     let mut fetcher = WebFetcher::from_config(&config);
     let test_url = tarzi::constants::HTTPBIN_HTML_URL;
 
-    // Plain request mode
-    match fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Html)
-        .await
-    {
-        Ok(content) => println!("   Plain request: {} characters", content.len()),
-        Err(e) => println!("   Plain request failed: {e}"),
+    match fetcher.fetch(test_url, Format::Html).await {
+        Ok(content) => println!("   HTML: {} characters", content.len()),
+        Err(e) => println!("   Fetch failed: {e}"),
     }
 
-    // Browser headless mode
-    match fetcher
-        .fetch(test_url, FetchMode::BrowserHeadless, Format::Markdown)
-        .await
-    {
-        Ok(content) => println!("   Browser headless: {} characters", content.len()),
-        Err(e) => println!("   Browser headless failed: {e}"),
+    match fetcher.fetch(test_url, Format::Markdown).await {
+        Ok(content) => println!("   Markdown: {} characters", content.len()),
+        Err(e) => println!("   Fetch failed: {e}"),
     }
 
     println!();
@@ -64,7 +56,7 @@ async fn main() -> Result<()> {
     println!("3. Search and fetch content for each result:");
 
     match search_engine
-        .search_with_content(query, 3, FetchMode::BrowserHeadless, Format::Markdown)
+        .search_with_content(query, 3, Format::Markdown)
         .await
     {
         Ok(results) => {

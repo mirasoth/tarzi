@@ -7,12 +7,7 @@ use super::types::{
     AccessMethod, SearchEngineType, SearchResult, default_engine_list, parse_engine_list,
 };
 use crate::config::Config;
-use crate::{
-    Result,
-    error::TarziError,
-    fetcher::{FetchMode, WebFetcher},
-};
-use std::str::FromStr;
+use crate::{Result, error::TarziError, fetcher::WebFetcher};
 
 use crate::constants::DEFAULT_QUERY_PATTERN;
 use tracing::{info, warn};
@@ -27,7 +22,6 @@ pub struct SearchEngine {
     custom_query_pattern: bool,
     user_agent: String,
     parser_factory: ParserFactory,
-    fetch_mode: FetchMode,
     browser_enabled: bool,
     /// Programmatic api_key / base_url from config (env still wins per engine at use time).
     config_api_key: Option<String>,
@@ -46,7 +40,6 @@ impl SearchEngine {
             custom_query_pattern: false,
             user_agent: crate::constants::DEFAULT_USER_AGENT.to_string(),
             parser_factory: ParserFactory::new(),
-            fetch_mode: FetchMode::BrowserHeadless,
             browser_enabled: true,
             config_api_key: None,
             config_base_url: None,
@@ -92,9 +85,6 @@ impl SearchEngine {
             engine_type.get_query_pattern()
         };
 
-        let fetch_mode =
-            FetchMode::from_str(&config.fetcher.mode).unwrap_or(FetchMode::BrowserHeadless);
-
         Self {
             fetcher,
             engines,
@@ -103,7 +93,6 @@ impl SearchEngine {
             custom_query_pattern,
             user_agent: config.fetcher.user_agent.clone(),
             parser_factory: ParserFactory::new(),
-            fetch_mode,
             browser_enabled: config.search.browser,
             config_api_key: config.search.api_key.clone(),
             config_base_url: config.search.base_url.clone(),
@@ -218,17 +207,8 @@ impl SearchEngine {
                 self.search_via_api(query, limit, engine, api_key, base_url)
                     .await
             }
-            AccessMethod::PlainHttp => {
-                self.search_via_web(query, limit, FetchMode::PlainRequest, true)
-                    .await
-            }
-            AccessMethod::Browser => {
-                let browser_mode = match self.fetch_mode {
-                    FetchMode::BrowserHead => FetchMode::BrowserHead,
-                    _ => FetchMode::BrowserHeadless,
-                };
-                self.search_via_web(query, limit, browser_mode, false).await
-            }
+            AccessMethod::PlainHttp => self.search_via_web(query, limit, true).await,
+            AccessMethod::Browser => self.search_via_web(query, limit, false).await,
         }
     }
 
@@ -276,7 +256,6 @@ impl SearchEngine {
         &mut self,
         query: &str,
         limit: usize,
-        fetch_mode: FetchMode,
         use_plain_pattern: bool,
     ) -> Result<Vec<SearchResult>> {
         if !self.engine_type.supports_web() {
@@ -295,18 +274,30 @@ impl SearchEngine {
         };
 
         let search_url = pattern.replace("{query}", &urlencoding::encode(query));
-        info!("Web search ({:?}) URL: {}", fetch_mode, search_url);
+        let access = if use_plain_pattern {
+            "plain HTTP"
+        } else {
+            "browser"
+        };
+        info!("Web search ({}) URL: {}", access, search_url);
 
-        let search_page_content = self.fetch_with_retry(&search_url, fetch_mode).await?;
+        let search_page_content = self
+            .fetch_with_retry(&search_url, use_plain_pattern)
+            .await?;
         self.extract_search_results_from_html(&search_page_content, limit)
     }
 
-    async fn fetch_with_retry(&mut self, url: &str, fetch_mode: FetchMode) -> Result<String> {
+    async fn fetch_with_retry(&mut self, url: &str, use_plain: bool) -> Result<String> {
         const MAX_RETRIES: usize = 3;
         const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
         for attempt in 1..=MAX_RETRIES {
-            match self.fetcher.fetch_raw(url, fetch_mode).await {
+            let result = if use_plain {
+                self.fetcher.fetch_plain(url).await
+            } else {
+                self.fetcher.fetch_browser(url).await
+            };
+            match result {
                 Ok(content) => {
                     if attempt > 1 {
                         info!("Successfully fetched content on attempt {}", attempt);
@@ -348,30 +339,21 @@ impl SearchEngine {
         parser.parse(html, limit)
     }
 
-    /// Search and fetch content for each result
+    /// Search and fetch content for each result.
+    ///
+    /// Page content uses the fetcher access cascade (plain HTTP → browser).
     pub async fn search_with_content(
         &mut self,
         query: &str,
         limit: usize,
-        fetch_mode: FetchMode,
         format: crate::converter::Format,
     ) -> Result<Vec<(SearchResult, String)>> {
-        let effective_fetch_mode = if matches!(fetch_mode, FetchMode::PlainRequest) {
-            FetchMode::PlainRequest
-        } else {
-            FetchMode::BrowserHeadless
-        };
-
         let search_results = self.search(query, limit).await?;
 
         let mut results_with_content = Vec::new();
 
         for result in search_results.clone() {
-            match self
-                .fetcher
-                .fetch(&result.url, effective_fetch_mode, format)
-                .await
-            {
+            match self.fetcher.fetch(&result.url, format).await {
                 Ok(content) => {
                     results_with_content.push((result, content));
                 }
@@ -400,6 +382,7 @@ impl Default for SearchEngine {
 mod tests {
     use super::*;
     use crate::constants::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_search_engine_default() {

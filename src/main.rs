@@ -5,7 +5,7 @@ use tarzi::{
     Result,
     config::{CliConfigParams, Config},
     converter::{Converter, Format, convert_search_results},
-    fetcher::{FetchMode, WebFetcher},
+    fetcher::WebFetcher,
     search::SearchEngine,
 };
 use tracing::{debug, info};
@@ -153,7 +153,7 @@ async fn main() -> Result<()> {
             let mut fetcher = WebFetcher::from_config(&config);
             let format = Format::from_str(&format)?;
 
-            let result = fetcher.fetch(&url, FetchMode::PlainRequest, format).await?;
+            let result = fetcher.fetch(&url, format).await?;
 
             if let Some(output_path) = output {
                 std::fs::write(&output_path, result)?;
@@ -229,7 +229,7 @@ async fn main() -> Result<()> {
             let format = Format::from_str(&format)?;
 
             let results_with_content = search_engine
-                .search_with_content(&query, limit, FetchMode::PlainRequest, format)
+                .search_with_content(&query, limit, format)
                 .await?;
 
             // Convert results to JSON for output

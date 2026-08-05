@@ -33,14 +33,14 @@ def convert_html(html: str, format: str = "markdown") -> str:
     return Converter().convert(html, format)
 
 
-def fetch(url: str, mode: str = "plain_request", format: str = "html") -> str:
-    """Fetch a URL using WebFetcher."""
-    return WebFetcher().fetch(url, mode, format)
+def fetch(url: str, format: str = "html") -> str:
+    """Fetch a URL using WebFetcher (plain HTTP → browser cascade)."""
+    return WebFetcher().fetch(url, format)
 
 
-def fetch_url(url: str, mode: str = "plain_request", format: str = "html") -> str:
+def fetch_url(url: str, format: str = "html") -> str:
     """Alias for :func:`fetch`."""
-    return fetch(url, mode, format)
+    return fetch(url, format)
 
 
 def search_web(query: str, limit: int = 10):
@@ -55,13 +55,12 @@ def search_web(query: str, limit: int = 10):
 def search_with_content(
     query: str,
     limit: int = 5,
-    fetch_mode: str = "plain_request",
     format: str = "markdown",
 ):
-    """Search and fetch content for each result."""
+    """Search and fetch content for each result (fetcher cascade)."""
     engine = SearchEngine()
     try:
-        return engine.search_with_content(query, limit, fetch_mode, format)
+        return engine.search_with_content(query, limit, format)
     finally:
         engine.shutdown()
 

@@ -168,9 +168,10 @@ Add to `claude_desktop_config.json`:
 - **API keys**: `BRAVE_API_KEY`, `SERPER_API_KEY` (engine-specific; tarzi has no product API key)
 - **Returns**: Structured search results
 
-### 2. fetch ⭐ **Enhanced with Browser Automation**
+### 2. fetch
 - **Purpose**: Fetch content from web URLs
-- **Parameters**: url, format, mode (plain_request/**browser**)
+- **Parameters**: url, format
+- **Access cascade**: plain HTTP → headless browser (if `TARZI_FETCHER_BROWSER`, default true)
 - **Browser Features**:
   - JavaScript execution
   - Dynamic content rendering
@@ -185,7 +186,7 @@ Add to `claude_desktop_config.json`:
 
 ### 4. search_and_fetch ⭐ **Enhanced with Browser Automation**
 - **Purpose**: Search and fetch content from results
-- **Parameters**: query, limit, fetch_mode, content_format
+- **Parameters**: query, limit, content_format
 - **Search access**: driven by tarzi config (`TARZI_SEARCH_ENGINE` list + `TARZI_SEARCH_BROWSER`;
   engines include `brave`, `google_serper`, `bing`, `duckduckgo`, …)
 - **Browser**: Can use browser automation for content fetching
@@ -315,7 +316,7 @@ docker-compose --profile debug up
 ```bash
 # Environment variables for optimization
 export TARZI_FETCHER_TIMEOUT=60        # Longer timeout for JS-heavy sites
-export TARZI_FETCHER_MODE=browser_headless
+export TARZI_FETCHER_BROWSER=true
 export MOZ_HEADLESS=1                  # Always use headless mode
 
 # Docker optimization

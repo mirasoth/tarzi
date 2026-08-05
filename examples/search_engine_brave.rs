@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let mut config = Config::load().unwrap_or_default();
-    config.fetcher.mode = "browser_headless".to_string();
+
     config.search.engine = "brave".to_string();
     config.search.browser = true;
     config.fetcher.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".to_string();

@@ -31,8 +31,8 @@ Basic Usage
    # Convert HTML
    markdown = tarzi.convert_html("<h1>Hello</h1>", "markdown")
 
-   # Fetch web page
-   content = tarzi.fetch_url("https://example.com", mode="plain_request")
+   # Fetch web page (plain HTTP → headless browser)
+   content = tarzi.fetch_url("https://example.com")
 
    # Search web (access cascade from config)
    results = tarzi.search_web("python programming", 10)

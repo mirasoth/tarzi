@@ -61,7 +61,7 @@ class TestSearchEngine:
     def test_search_with_content(self, engine, test_query):
         """Test search and fetch functionality."""
         try:
-            results = engine.search_with_content(test_query, 1, "plain_request", "markdown")
+            results = engine.search_with_content(test_query, 1, "markdown")
             assert len(results) > 0, "Should return at least one result with content"
             for result, content in results:
                 assert result.title, "Result should have a title"
@@ -72,15 +72,11 @@ class TestSearchEngine:
                 pytest.skip(f"Search unavailable externally: {e}")
             pytest.fail(f"Search and fetch failed: {e}")
 
-    def test_search_with_content_invalid_fetch_mode(self, engine, test_query):
-        """Test search and fetch with invalid fetch mode."""
-        with pytest.raises(Exception):
-            engine.search_with_content(test_query, 1, "invalid_fetch_mode", "html")
 
     def test_search_with_content_invalid_format(self, engine, test_query):
         """Test search and fetch with invalid format."""
         with pytest.raises(Exception):
-            engine.search_with_content(test_query, 1, "plain_request", "invalid_format")
+            engine.search_with_content(test_query, 1, "invalid_format")
 
     def test_from_config(self):
         """Test creating SearchEngine from config."""
@@ -126,7 +122,7 @@ def test_search_web_basic_functionality(test_query):
 def test_search_with_content_function(test_query):
     """Test the search_with_content function."""
     try:
-        results = tarzi.search_with_content(test_query, 1, "plain_request", "markdown")
+        results = tarzi.search_with_content(test_query, 1, "markdown")
         assert len(results) > 0, "Should return at least one result with content"
     except Exception as e:
         if _is_acceptable_external_failure(e):
@@ -135,14 +131,3 @@ def test_search_with_content_function(test_query):
 
 
 @pytest.mark.integration
-def test_search_with_content_invalid_fetch_mode(test_query):
-    """Test search_with_content with invalid fetch mode."""
-    with pytest.raises(Exception):
-        tarzi.search_with_content(test_query, 1, "invalid_fetch_mode", "html")
-
-
-@pytest.mark.integration
-def test_search_with_content_invalid_format(test_query):
-    """Test search_with_content with invalid format."""
-    with pytest.raises(Exception):
-        tarzi.search_with_content(test_query, 1, "plain_request", "invalid_format")

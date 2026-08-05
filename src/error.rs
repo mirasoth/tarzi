@@ -32,9 +32,6 @@ pub enum TarziError {
     #[error("Invalid format: {0}")]
     InvalidFormat(String),
 
-    #[error("Invalid mode: {0}")]
-    InvalidMode(String),
-
     #[error("Invalid engine: {0}")]
     InvalidEngine(String),
 

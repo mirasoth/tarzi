@@ -1,10 +1,10 @@
 use crate::constants::{
-    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_BROWSER, DEFAULT_SEARCH_ENGINE, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TIMEOUT_SECS, ENV_TARZI_FETCHER_FORMAT, ENV_TARZI_FETCHER_MODE,
-    ENV_TARZI_FETCHER_TIMEOUT, ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY, ENV_TARZI_QUERY_PATTERN,
-    ENV_TARZI_SEARCH_BROWSER, ENV_TARZI_SEARCH_ENGINE, ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_TIMEOUT,
-    ENV_TARZI_USER_AGENT, ENV_TARZI_WEB_DRIVER, ENV_TARZI_WEB_DRIVER_URL,
-    FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN, LOG_LEVEL_INFO,
+    DEFAULT_FETCHER_BROWSER, DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_BROWSER, DEFAULT_SEARCH_ENGINE,
+    DEFAULT_SEARCH_LIMIT, DEFAULT_TIMEOUT_SECS, ENV_TARZI_FETCHER_BROWSER,
+    ENV_TARZI_FETCHER_FORMAT, ENV_TARZI_FETCHER_TIMEOUT, ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY,
+    ENV_TARZI_QUERY_PATTERN, ENV_TARZI_SEARCH_BROWSER, ENV_TARZI_SEARCH_ENGINE,
+    ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_TIMEOUT, ENV_TARZI_USER_AGENT, ENV_TARZI_WEB_DRIVER,
+    ENV_TARZI_WEB_DRIVER_URL, FORMAT_MARKDOWN, LOG_LEVEL_INFO,
 };
 use crate::{Result, error::TarziError};
 use serde::{Deserialize, Serialize};
@@ -29,8 +29,6 @@ pub struct GeneralConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FetcherConfig {
-    #[serde(default = "default_fetch_mode")]
-    pub mode: String,
     #[serde(default = "default_fetch_format")]
     pub format: String,
     #[serde(default = "default_user_agent")]
@@ -41,6 +39,9 @@ pub struct FetcherConfig {
     #[serde(default = "default_web_driver")]
     pub web_driver: String,
     pub web_driver_url: Option<String>,
+    /// Whether browser may be used as a fetch access fallback (default true).
+    #[serde(default = "default_fetcher_browser")]
+    pub browser: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,11 +122,6 @@ impl Config {
             self.general.timeout = v;
         }
 
-        if let Ok(v) = std::env::var(ENV_TARZI_FETCHER_MODE)
-            && !v.is_empty()
-        {
-            self.fetcher.mode = v;
-        }
         if let Ok(v) = std::env::var(ENV_TARZI_FETCHER_FORMAT)
             && !v.is_empty()
         {
@@ -153,6 +149,9 @@ impl Config {
             && !v.is_empty()
         {
             self.fetcher.web_driver_url = Some(v);
+        }
+        if let Some(v) = parse_env_bool(ENV_TARZI_FETCHER_BROWSER)? {
+            self.fetcher.browser = v;
         }
 
         if let Ok(v) = std::env::var(ENV_TARZI_SEARCH_ENGINE)
@@ -184,9 +183,6 @@ impl Config {
             self.general.timeout = other.general.timeout;
         }
 
-        if other.fetcher.mode != default_fetch_mode() {
-            self.fetcher.mode = other.fetcher.mode.clone();
-        }
         if other.fetcher.format != default_fetch_format() {
             self.fetcher.format = other.fetcher.format.clone();
         }
@@ -204,6 +200,9 @@ impl Config {
         }
         if other.fetcher.web_driver_url.is_some() {
             self.fetcher.web_driver_url = other.fetcher.web_driver_url.clone();
+        }
+        if other.fetcher.browser != default_fetcher_browser() {
+            self.fetcher.browser = other.fetcher.browser;
         }
 
         if other.search.engine != default_search_engine() {
@@ -294,13 +293,13 @@ impl Default for GeneralConfig {
 impl Default for FetcherConfig {
     fn default() -> Self {
         Self {
-            mode: default_fetch_mode(),
             format: default_fetch_format(),
             user_agent: default_user_agent(),
             timeout: default_fetch_timeout(),
             proxy: None,
             web_driver: default_web_driver(),
             web_driver_url: None,
+            browser: default_fetcher_browser(),
         }
     }
 }
@@ -333,10 +332,6 @@ fn default_timeout() -> u64 {
     DEFAULT_TIMEOUT_SECS
 }
 
-fn default_fetch_mode() -> String {
-    FETCHER_MODE_BROWSER_HEADLESS.to_string()
-}
-
 fn default_fetch_format() -> String {
     FORMAT_MARKDOWN.to_string()
 }
@@ -363,6 +358,10 @@ fn default_result_limit() -> usize {
 
 fn default_search_browser() -> bool {
     DEFAULT_SEARCH_BROWSER
+}
+
+fn default_fetcher_browser() -> bool {
+    DEFAULT_FETCHER_BROWSER
 }
 
 fn default_web_driver() -> String {
@@ -406,7 +405,7 @@ mod tests {
 
         assert_eq!(config.general.log_level, LOG_LEVEL_INFO);
         assert_eq!(config.general.timeout, DEFAULT_TIMEOUT_SECS);
-        assert_eq!(config.fetcher.mode, FETCHER_MODE_BROWSER_HEADLESS);
+        assert!(config.fetcher.browser);
         assert_eq!(config.fetcher.format, FORMAT_MARKDOWN);
         assert_eq!(
             config.fetcher.user_agent,
@@ -451,13 +450,13 @@ engine = "google_serper"
     fn test_config_serialization() {
         let mut config = Config::new();
         config.search.limit = DEFAULT_SEARCH_LIMIT;
-        config.fetcher.mode = FETCHER_MODE_HEAD.to_string();
+        config.fetcher.browser = false;
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed_config: Config = toml::from_str(&toml_str).unwrap();
 
         assert_eq!(parsed_config.search.limit, DEFAULT_SEARCH_LIMIT);
-        assert_eq!(parsed_config.fetcher.mode, FETCHER_MODE_HEAD);
+        assert!(!parsed_config.fetcher.browser);
     }
 
     #[test]
@@ -468,13 +467,13 @@ log_level = "debug"
 timeout = 60
 
 [fetcher]
-mode = "head"
 format = "json"
 user_agent = "Custom User Agent"
 timeout = 45
 proxy = "http://example.com:8080"
 web_driver = "chrome"
 web_driver_url = "http://example.com/driver"
+browser = false
 
 [search]
 engine = "google.com"
@@ -486,7 +485,7 @@ limit = 5
 
         assert_eq!(config.general.log_level, "debug");
         assert_eq!(config.general.timeout, 60);
-        assert_eq!(config.fetcher.mode, FETCHER_MODE_HEAD);
+        assert!(!config.fetcher.browser);
         assert_eq!(config.fetcher.format, FORMAT_JSON);
         assert_eq!(config.fetcher.user_agent, "Custom User Agent");
         assert_eq!(config.fetcher.timeout, 45);
@@ -516,6 +515,7 @@ web_driver_url = "http://localhost:9999"
             config.fetcher.web_driver_url,
             Some("http://localhost:9999".to_string())
         );
+        assert!(config.fetcher.browser);
     }
 
     #[test]
@@ -524,13 +524,13 @@ web_driver_url = "http://localhost:9999"
             let keys = [
                 ENV_TARZI_LOG_LEVEL,
                 ENV_TARZI_TIMEOUT,
-                ENV_TARZI_FETCHER_MODE,
                 ENV_TARZI_FETCHER_FORMAT,
                 ENV_TARZI_USER_AGENT,
                 ENV_TARZI_FETCHER_TIMEOUT,
                 ENV_TARZI_PROXY,
                 ENV_TARZI_WEB_DRIVER,
                 ENV_TARZI_WEB_DRIVER_URL,
+                ENV_TARZI_FETCHER_BROWSER,
                 ENV_TARZI_SEARCH_ENGINE,
                 ENV_TARZI_QUERY_PATTERN,
                 ENV_TARZI_SEARCH_LIMIT,
@@ -546,13 +546,13 @@ web_driver_url = "http://localhost:9999"
             unsafe {
                 std::env::set_var(ENV_TARZI_LOG_LEVEL, "debug");
                 std::env::set_var(ENV_TARZI_TIMEOUT, "90");
-                std::env::set_var(ENV_TARZI_FETCHER_MODE, "plain_request");
                 std::env::set_var(ENV_TARZI_FETCHER_FORMAT, "json");
                 std::env::set_var(ENV_TARZI_USER_AGENT, "EnvAgent/1.0");
                 std::env::set_var(ENV_TARZI_FETCHER_TIMEOUT, "45");
                 std::env::set_var(ENV_TARZI_PROXY, "http://env-proxy:8080");
                 std::env::set_var(ENV_TARZI_WEB_DRIVER, "geckodriver");
                 std::env::set_var(ENV_TARZI_WEB_DRIVER_URL, "http://localhost:4444");
+                std::env::set_var(ENV_TARZI_FETCHER_BROWSER, "false");
                 std::env::set_var(ENV_TARZI_SEARCH_ENGINE, "brave,duckduckgo");
                 std::env::set_var(ENV_TARZI_QUERY_PATTERN, "https://example.com?q={query}");
                 std::env::set_var(ENV_TARZI_SEARCH_LIMIT, "12");
@@ -563,7 +563,7 @@ web_driver_url = "http://localhost:9999"
 
             assert_eq!(config.general.log_level, "debug");
             assert_eq!(config.general.timeout, 90);
-            assert_eq!(config.fetcher.mode, "plain_request");
+            assert!(!config.fetcher.browser);
             assert_eq!(config.fetcher.format, "json");
             assert_eq!(config.fetcher.user_agent, "EnvAgent/1.0");
             assert_eq!(config.fetcher.timeout, 45);
@@ -621,13 +621,13 @@ web_driver_url = "http://localhost:9999"
             let keys = [
                 ENV_TARZI_LOG_LEVEL,
                 ENV_TARZI_TIMEOUT,
-                ENV_TARZI_FETCHER_MODE,
                 ENV_TARZI_FETCHER_FORMAT,
                 ENV_TARZI_USER_AGENT,
                 ENV_TARZI_FETCHER_TIMEOUT,
                 ENV_TARZI_PROXY,
                 ENV_TARZI_WEB_DRIVER,
                 ENV_TARZI_WEB_DRIVER_URL,
+                ENV_TARZI_FETCHER_BROWSER,
                 ENV_TARZI_SEARCH_ENGINE,
                 ENV_TARZI_QUERY_PATTERN,
                 ENV_TARZI_SEARCH_LIMIT,
@@ -643,6 +643,7 @@ web_driver_url = "http://localhost:9999"
             let config = Config::load().unwrap();
             assert_eq!(config.search.engine, DEFAULT_SEARCH_ENGINE);
             assert!(config.search.browser);
+            assert!(config.fetcher.browser);
             assert!(config.fetcher.proxy.is_none());
             assert!(config.search.api_key.is_none());
 
@@ -765,7 +766,6 @@ web_driver_url = "http://localhost:9999"
     fn test_cli_params_override() {
         let mut config = Config::new();
 
-        config.fetcher.mode = FETCHER_MODE_BROWSER_HEADLESS.to_string();
         config.fetcher.format = FORMAT_MARKDOWN.to_string();
         config.search.limit = DEFAULT_SEARCH_LIMIT;
         config.search.engine = SEARCH_ENGINE_BING.to_string();
@@ -777,7 +777,7 @@ web_driver_url = "http://localhost:9999"
 
         config.apply_cli_params(&cli_params);
 
-        assert_eq!(config.fetcher.mode, FETCHER_MODE_BROWSER_HEADLESS);
+        assert!(config.fetcher.browser);
         assert_eq!(config.fetcher.format, FORMAT_JSON);
         assert_eq!(config.search.limit, DEFAULT_SEARCH_LIMIT);
         assert_eq!(config.search.engine, SEARCH_ENGINE_GOOGLE);
@@ -823,7 +823,6 @@ web_driver_url = "http://localhost:9999"
         let mut base_config = Config::new();
 
         base_config.general.log_level = LOG_LEVEL_INFO.to_string();
-        base_config.fetcher.mode = FETCHER_MODE_BROWSER_HEADLESS.to_string();
         base_config.search.engine = SEARCH_ENGINE_BING.to_string();
 
         let override_config = Config {
@@ -832,13 +831,13 @@ web_driver_url = "http://localhost:9999"
                 timeout: 60,
             },
             fetcher: FetcherConfig {
-                mode: FETCHER_MODE_PLAIN_REQUEST.to_string(),
                 format: FORMAT_JSON.to_string(),
                 user_agent: "Custom Agent".to_string(),
                 timeout: 45,
                 proxy: Some("http://proxy:8080".to_string()),
                 web_driver: CHROMEDRIVER.to_string(),
                 web_driver_url: Some("http://localhost:4444".to_string()),
+                browser: false,
             },
             search: SearchConfig {
                 engine: SEARCH_ENGINE_GOOGLE.to_string(),
@@ -854,7 +853,7 @@ web_driver_url = "http://localhost:9999"
 
         assert_eq!(base_config.general.log_level, LOG_LEVEL_DEBUG);
         assert_eq!(base_config.general.timeout, 60);
-        assert_eq!(base_config.fetcher.mode, FETCHER_MODE_PLAIN_REQUEST);
+        assert!(!base_config.fetcher.browser);
         assert_eq!(base_config.fetcher.format, FORMAT_JSON);
         assert_eq!(base_config.fetcher.user_agent, "Custom Agent");
         assert_eq!(base_config.fetcher.timeout, 45);

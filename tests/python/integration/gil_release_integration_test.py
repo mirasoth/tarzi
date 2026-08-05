@@ -94,7 +94,7 @@ class TestGilRelease:
         fetcher = tarzi.WebFetcher()
 
         ticks, duration = _count_event_loop_ticks(
-            lambda: fetcher.fetch_raw(slow_server, "plain_request")
+            lambda: fetcher.fetch_raw(slow_server)
         )
 
         assert duration >= RESPONSE_DELAY_SEC, f"fetch returned too early ({duration:.2f}s)"
@@ -110,8 +110,8 @@ class TestGilRelease:
         """Sequential calls succeed against the shared runtime."""
         fetcher = tarzi.WebFetcher()
 
-        first = fetcher.fetch_raw(slow_server, "plain_request")
-        second = fetcher.fetch_raw(slow_server, "plain_request")
+        first = fetcher.fetch_raw(slow_server)
+        second = fetcher.fetch_raw(slow_server)
 
         assert "slow" in first
         assert "slow" in second

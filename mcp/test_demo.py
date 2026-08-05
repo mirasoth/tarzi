@@ -26,7 +26,7 @@ class MockTarzi:
         ]
     
     @staticmethod
-    def fetch(url: str, mode: str, format: str) -> str:
+    def fetch(url: str, format: str) -> str:
         """Mock fetch function for demo."""
         if format == "markdown":
             return f"# Mock Content\n\nThis is mock content from {url}"
@@ -82,7 +82,7 @@ def demo_search_web(query: str, limit: int = 10) -> List[SearchResult]:
 def demo_fetch(url: str, format: str = "html") -> str:
     """Demo fetch URL tool."""
     try:
-        content = MockTarzi.fetch(url, "plain_request", format)
+        content = MockTarzi.fetch(url, format)
         logger.info(f"Demo fetch completed: {url} in {format} format")
         return content
     except Exception as e:

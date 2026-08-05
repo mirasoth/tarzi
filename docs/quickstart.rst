@@ -25,11 +25,10 @@ Let's start with a simple example that demonstrates the core functionality:
    print("Converted to Markdown:")
    print(markdown)
 
-   # 2. Fetch a web page
+   # 2. Fetch a web page (plain HTTP → headless browser)
    try:
        content = tarzi.fetch_url(
-           "https://httpbin.org/html", 
-           mode="plain_request", 
+           "https://httpbin.org/html",
            format="markdown"
        )
        print("\nFetched content:")
@@ -75,7 +74,7 @@ Here's the equivalent Rust program:
 
 .. code-block:: rust
 
-   use tarzi::{config::Config, Converter, WebFetcher, SearchEngine, Format, FetchMode};
+   use tarzi::{config::Config, Converter, WebFetcher, SearchEngine, Format};
 
    #[tokio::main]
    async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -89,7 +88,6 @@ Here's the equivalent Rust program:
        let mut fetcher = WebFetcher::new();
        match fetcher.fetch(
            "https://httpbin.org/html",
-           FetchMode::PlainRequest,
            Format::Markdown
        ).await {
            Ok(content) => {
@@ -178,27 +176,26 @@ tarzi supports multiple output formats:
    print("JSON:", json_data)
    print("YAML:", yaml_data)
 
-Fetch Modes
+Fetch Cascade
 ~~~~~~~~~~~
 
-Different modes for fetching web content:
+Fetch always tries plain HTTP first, then headless browser when enabled:
 
-- **plain_request**: Fast HTTP GET request (no JavaScript)
-- **browser_headless**: Full browser automation (supports JavaScript)
-- **browser_head**: Browser automation with visible window (for debugging)
 
 .. code-block:: python
 
-   # Static content (fast)
+   # Cascade (plain HTTP → headless browser)
    content = tarzi.fetch_url(
-       "https://example.com", 
-       mode="plain_request"
+       "https://example.com",
+       format="markdown"
    )
 
-   # JavaScript-heavy sites (slower but more complete)
-   content = tarzi.fetch_url(
-       "https://spa-example.com", 
-       mode="browser_headless"
+   # Disable browser fallback via config
+   config = tarzi.Config.load()
+   config.set_fetcher_browser(False)
+   content = tarzi.WebFetcher.from_config(config).fetch(
+       "https://example.com",
+       "html"
    )
 
 Search Access Cascade

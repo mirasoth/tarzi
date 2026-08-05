@@ -17,7 +17,7 @@ log_level = "debug"
 timeout = 60
 
 [fetcher]
-mode = "browser_headless"
+browser = true
 format = "markdown"
 timeout = 30
 proxy = "http://proxy.example.com:8080"
@@ -126,14 +126,12 @@ browser = {str(browser).lower()}
             search_engine = tarzi.SearchEngine.from_config(config)
             assert isinstance(search_engine, tarzi.SearchEngine)
 
-    def test_fetcher_mode_options(self):
-        """Test different fetcher mode configuration options."""
-        modes = ["plain_request", "browser_headless", "browser_head"]
-
-        for mode in modes:
+    def test_fetcher_browser_options(self):
+        """Test fetcher.browser configuration options."""
+        for browser in [True, False]:
             config_str = f"""
 [fetcher]
-mode = "{mode}"
+browser = {str(browser).lower()}
 
 [search]
 engine = "duckduckgo"
@@ -141,7 +139,6 @@ engine = "duckduckgo"
             config = tarzi.Config.from_str(config_str)
             assert isinstance(config, tarzi.Config)
 
-            # Should be able to create fetcher
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
@@ -267,7 +264,7 @@ log_level = "debug"
             # Only fetcher section
             """
 [fetcher]
-mode = "plain_request"
+browser = false
 """,
             # Only search section
             """

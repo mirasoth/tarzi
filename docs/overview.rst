@@ -43,7 +43,7 @@ The Fetcher module handles web page retrieval with multiple strategies:
    - Headed mode for debugging
 
 **Proxy Support**
-   Custom proxy support for all fetch modes
+   Custom proxy support for HTTP and headless-browser fetches
 
 Key features:
 

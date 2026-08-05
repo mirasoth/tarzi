@@ -94,9 +94,7 @@ def main():
 
         elif args.command == "fetch":
             fetcher = tarzi.WebFetcher.from_config(config)
-            # Mode comes from env via Config.load(); CLI does not expose a mode flag.
-            # Use browser_headless to match library defaults when calling fetch().
-            result = fetcher.fetch(args.url, "browser_headless", args.format)
+            result = fetcher.fetch(args.url, args.format)
 
             if args.output:
                 with open(args.output, "w") as f:
@@ -148,7 +146,7 @@ def main():
             if args.limit:
                 config.set_search_limit(args.limit)
             engine = tarzi.SearchEngine.from_config(config)
-            results_with_content = engine.search_with_content(args.query, args.limit, "browser_headless", args.format)
+            results_with_content = engine.search_with_content(args.query, args.limit, args.format)
 
             # Format the combined results
             if args.format == "json":

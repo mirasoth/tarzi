@@ -1,7 +1,7 @@
 use crate::{
     Result,
     config::Config,
-    constants::{DEFAULT_TIMEOUT, DEFAULT_USER_AGENT, PAGE_LOAD_WAIT},
+    constants::{DEFAULT_FETCHER_BROWSER, DEFAULT_TIMEOUT, DEFAULT_USER_AGENT, PAGE_LOAD_WAIT},
     converter::{Converter, Format},
     error::TarziError,
 };
@@ -9,7 +9,7 @@ use reqwest::Client;
 use tracing::{error, info, warn};
 use url::Url;
 
-use super::{browser::BrowserManager, types::FetchMode};
+use super::browser::BrowserManager;
 
 /// Main web content fetcher
 #[derive(Debug)]
@@ -17,6 +17,8 @@ pub struct WebFetcher {
     http_client: Client,
     browser_manager: BrowserManager,
     converter: Converter,
+    /// Whether browser may be used as a fetch fallback (default true).
+    browser_enabled: bool,
 }
 
 impl WebFetcher {
@@ -33,6 +35,7 @@ impl WebFetcher {
             http_client,
             browser_manager: BrowserManager::new(),
             converter: Converter::new(),
+            browser_enabled: DEFAULT_FETCHER_BROWSER,
         }
     }
 
@@ -62,32 +65,60 @@ impl WebFetcher {
             http_client,
             browser_manager: BrowserManager::from_config(config),
             converter: Converter::new(),
+            browser_enabled: config.fetcher.browser,
         }
     }
 
-    /// Fetch content from URL and convert to specified format
-    pub async fn fetch(&mut self, url: &str, mode: FetchMode, format: Format) -> Result<String> {
-        let raw_content = self.fetch_raw(url, mode).await?;
+    pub fn browser_enabled(&self) -> bool {
+        self.browser_enabled
+    }
+
+    /// Fetch content from URL and convert to specified format.
+    ///
+    /// Access cascade: plain HTTP → browser (when enabled).
+    pub async fn fetch(&mut self, url: &str, format: Format) -> Result<String> {
+        let raw_content = self.fetch_raw(url).await?;
         let converted_content = self.converter.convert(&raw_content, format).await?;
         Ok(converted_content)
     }
 
-    /// Get raw content without conversion (for internal use)
-    pub async fn fetch_raw(&mut self, url: &str, mode: FetchMode) -> Result<String> {
-        match mode {
-            FetchMode::PlainRequest => self.fetch_plain_request(url).await,
-            FetchMode::BrowserHead => self.fetch_with_browser(url, false).await,
-            FetchMode::BrowserHeadless => self.fetch_with_browser(url, true).await,
+    /// Get raw content without conversion.
+    ///
+    /// Access cascade: plain HTTP → browser (when enabled).
+    pub async fn fetch_raw(&mut self, url: &str) -> Result<String> {
+        match self.fetch_plain(url).await {
+            Ok(content) if !content.trim().is_empty() => {
+                info!("Fetch succeeded via plain HTTP for {}", url);
+                Ok(content)
+            }
+            Ok(_) if self.browser_enabled => {
+                warn!(
+                    "Plain HTTP returned empty content for {}; trying browser",
+                    url
+                );
+                self.fetch_browser(url).await
+            }
+            Err(e) if self.browser_enabled => {
+                warn!("Plain HTTP failed for {}: {}; trying browser", url, e);
+                self.fetch_browser(url).await
+            }
+            Ok(content) => Ok(content),
+            Err(e) => Err(e),
         }
     }
 
-    /// Fetch raw content using plain HTTP request (no JS rendering)
-    async fn fetch_plain_request(&self, url: &str) -> Result<String> {
+    /// Plain HTTP fetch only (no browser fallback). Used by search access methods.
+    pub async fn fetch_plain(&self, url: &str) -> Result<String> {
         let url = Url::parse(url)?;
         let response = self.http_client.get(url).send().await?;
         let response = response.error_for_status()?;
         let content = response.text().await?;
         Ok(content)
+    }
+
+    /// Browser fetch only (no plain HTTP attempt). Used by search access methods.
+    pub async fn fetch_browser(&mut self, url: &str) -> Result<String> {
+        self.fetch_with_browser(url).await
     }
 
     /// GET with custom headers (used by search API clients).
@@ -123,16 +154,13 @@ impl WebFetcher {
         Ok(response.text().await?)
     }
 
-    /// Fetch content using browser (with or without headless mode)
-    async fn fetch_with_browser(&mut self, url: &str, headless: bool) -> Result<String> {
-        info!(
-            "Fetching URL with browser (headless: {}): {}",
-            headless, url
-        );
+    /// Fetch content using headless browser
+    async fn fetch_with_browser(&mut self, url: &str) -> Result<String> {
+        info!("Fetching URL with headless browser: {}", url);
 
         // Get or create browser instance
         info!("Getting or creating browser instance...");
-        let browser = self.browser_manager.get_or_create_browser(headless).await?;
+        let browser = self.browser_manager.get_or_create_browser().await?;
         info!("Using existing browser instance for fetching");
 
         // Navigate to the URL
@@ -203,147 +231,160 @@ impl WebFetcher {
         Ok(content)
     }
 
-    /// Fetch content using proxy
+    /// Fetch content using proxy.
+    ///
+    /// Access cascade: plain HTTP via proxy → browser via proxy (when enabled).
     pub async fn fetch_with_proxy(
         &mut self,
         url: &str,
         proxy: &str,
-        mode: FetchMode,
         format: Format,
     ) -> Result<String> {
         info!("Fetching URL with proxy: {} (proxy: {})", url, proxy);
 
-        let raw_content = match mode {
-            FetchMode::PlainRequest => {
-                let proxy_client = match reqwest::Proxy::http(proxy) {
-                    Ok(proxy_config) => {
-                        match Client::builder()
-                            .timeout(DEFAULT_TIMEOUT)
-                            .user_agent(DEFAULT_USER_AGENT)
-                            .proxy(proxy_config)
-                            .build()
-                        {
-                            Ok(client) => client,
-                            Err(e) => {
-                                warn!(
-                                    "Failed to create HTTP client with proxy '{}': {}. Falling back to no proxy.",
-                                    proxy, e
-                                );
-                                return Err(TarziError::Config(format!(
-                                    "Failed to create proxy client: {e}"
-                                )));
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Invalid proxy URL '{}': {}. Falling back to no proxy.",
-                            proxy, e
-                        );
-                        return Err(TarziError::Config(format!("Invalid proxy URL: {e}")));
-                    }
-                };
-
-                let url = Url::parse(url)?;
-                let response = proxy_client.get(url).send().await?;
-                let response = response.error_for_status()?;
-                response.text().await?
-            }
-            FetchMode::BrowserHead | FetchMode::BrowserHeadless => {
-                // For browser modes with proxy, create a new browser instance with proxy configuration
-                info!("Creating browser with proxy for fetching: {}", proxy);
-                let headless = matches!(mode, FetchMode::BrowserHeadless);
-                let instance_id = self
-                    .browser_manager
-                    .create_browser_with_proxy(
-                        None,
-                        headless,
-                        Some("proxy_browser".to_string()),
-                        Some(proxy.to_string()),
-                    )
-                    .await?;
-
-                // Get the browser instance and fetch content
-                let browser = self
-                    .browser_manager
-                    .get_browser(&instance_id)
-                    .ok_or_else(|| {
-                        TarziError::Browser("Failed to get proxy browser instance".to_string())
-                    })?;
-
-                // Navigate to URL
-                let navigation_result =
-                    tokio::time::timeout(DEFAULT_TIMEOUT, browser.get(url)).await;
-                match navigation_result {
-                    Ok(Ok(_)) => info!("Successfully navigated to page with proxy"),
-                    Ok(Err(e)) => {
-                        error!("Failed to navigate to URL with proxy: {}", e);
-                        return Err(TarziError::Browser(format!(
-                            "Failed to navigate with proxy: {e}"
-                        )));
-                    }
-                    Err(_) => {
-                        error!("Timeout while navigating to URL with proxy");
-                        return Err(TarziError::Browser(
-                            "Timeout while navigating with proxy".to_string(),
-                        ));
-                    }
-                }
-
-                // Wait for page load
-                tokio::time::sleep(PAGE_LOAD_WAIT).await;
-
-                // Get page content (prefer dynamic DOM via JS execution, fallback to page source)
-                let content = match WebFetcher::get_outer_html_from(browser).await {
-                    Ok(html) => html,
-                    Err(e) => {
-                        warn!(
-                            "Falling back to page source (proxy) due to error getting dynamic DOM: {}",
-                            e
-                        );
-                        let content_result =
-                            tokio::time::timeout(DEFAULT_TIMEOUT, browser.source()).await;
-                        match content_result {
-                            Ok(Ok(content)) => content,
-                            Ok(Err(e)) => {
-                                error!("Failed to get page content with proxy: {}", e);
-                                return Err(TarziError::Browser(format!(
-                                    "Failed to get content with proxy: {e}"
-                                )));
-                            }
-                            Err(_) => {
-                                error!("Timeout while extracting page content with proxy");
-                                return Err(TarziError::Browser(
-                                    "Timeout while extracting content with proxy".to_string(),
-                                ));
-                            }
-                        }
-                    }
-                };
-
-                // Clean up the proxy browser instance
-                if let Err(e) = self.browser_manager.remove_browser(&instance_id).await {
-                    warn!("Failed to cleanup proxy browser instance: {}", e);
-                }
-
+        let raw_content = match self.fetch_plain_with_proxy(url, proxy).await {
+            Ok(content) if !content.trim().is_empty() => {
+                info!("Proxy fetch succeeded via plain HTTP for {}", url);
                 content
+            }
+            Ok(_) if self.browser_enabled => {
+                warn!(
+                    "Plain HTTP via proxy returned empty content for {}; trying browser",
+                    url
+                );
+                self.fetch_browser_with_proxy(url, proxy).await?
+            }
+            Err(e) if self.browser_enabled => {
+                warn!(
+                    "Plain HTTP via proxy failed for {}: {}; trying browser",
+                    url, e
+                );
+                self.fetch_browser_with_proxy(url, proxy).await?
+            }
+            Ok(content) => content,
+            Err(e) => return Err(e),
+        };
+
+        let converted_content = self.converter.convert(&raw_content, format).await?;
+        Ok(converted_content)
+    }
+
+    async fn fetch_plain_with_proxy(&self, url: &str, proxy: &str) -> Result<String> {
+        let proxy_client = match reqwest::Proxy::http(proxy) {
+            Ok(proxy_config) => match Client::builder()
+                .timeout(DEFAULT_TIMEOUT)
+                .user_agent(DEFAULT_USER_AGENT)
+                .proxy(proxy_config)
+                .build()
+            {
+                Ok(client) => client,
+                Err(e) => {
+                    warn!(
+                        "Failed to create HTTP client with proxy '{}': {}.",
+                        proxy, e
+                    );
+                    return Err(TarziError::Config(format!(
+                        "Failed to create proxy client: {e}"
+                    )));
+                }
+            },
+            Err(e) => {
+                warn!("Invalid proxy URL '{}': {}.", proxy, e);
+                return Err(TarziError::Config(format!("Invalid proxy URL: {e}")));
             }
         };
 
-        // Convert to specified format
-        let converted_content = self.converter.convert(&raw_content, format).await?;
-        Ok(converted_content)
+        let url = Url::parse(url)?;
+        let response = proxy_client.get(url).send().await?;
+        let response = response.error_for_status()?;
+        Ok(response.text().await?)
+    }
+
+    async fn fetch_browser_with_proxy(&mut self, url: &str, proxy: &str) -> Result<String> {
+        info!(
+            "Creating headless browser with proxy for fetching: {}",
+            proxy
+        );
+        let instance_id = self
+            .browser_manager
+            .create_browser_with_proxy(
+                None,
+                Some("proxy_browser".to_string()),
+                Some(proxy.to_string()),
+            )
+            .await?;
+
+        let browser = self
+            .browser_manager
+            .get_browser(&instance_id)
+            .ok_or_else(|| {
+                TarziError::Browser("Failed to get proxy browser instance".to_string())
+            })?;
+
+        let navigation_result = tokio::time::timeout(DEFAULT_TIMEOUT, browser.get(url)).await;
+        match navigation_result {
+            Ok(Ok(_)) => info!("Successfully navigated to page with proxy"),
+            Ok(Err(e)) => {
+                error!("Failed to navigate to URL with proxy: {}", e);
+                let _ = self.browser_manager.remove_browser(&instance_id).await;
+                return Err(TarziError::Browser(format!(
+                    "Failed to navigate with proxy: {e}"
+                )));
+            }
+            Err(_) => {
+                error!("Timeout while navigating to URL with proxy");
+                let _ = self.browser_manager.remove_browser(&instance_id).await;
+                return Err(TarziError::Browser(
+                    "Timeout while navigating with proxy".to_string(),
+                ));
+            }
+        }
+
+        tokio::time::sleep(PAGE_LOAD_WAIT).await;
+
+        let content = match WebFetcher::get_outer_html_from(browser).await {
+            Ok(html) => html,
+            Err(e) => {
+                warn!(
+                    "Falling back to page source (proxy) due to error getting dynamic DOM: {}",
+                    e
+                );
+                let content_result = tokio::time::timeout(DEFAULT_TIMEOUT, browser.source()).await;
+                match content_result {
+                    Ok(Ok(content)) => content,
+                    Ok(Err(e)) => {
+                        error!("Failed to get page content with proxy: {}", e);
+                        let _ = self.browser_manager.remove_browser(&instance_id).await;
+                        return Err(TarziError::Browser(format!(
+                            "Failed to get content with proxy: {e}"
+                        )));
+                    }
+                    Err(_) => {
+                        error!("Timeout while extracting page content with proxy");
+                        let _ = self.browser_manager.remove_browser(&instance_id).await;
+                        return Err(TarziError::Browser(
+                            "Timeout while extracting content with proxy".to_string(),
+                        ));
+                    }
+                }
+            }
+        };
+
+        if let Err(e) = self.browser_manager.remove_browser(&instance_id).await {
+            warn!("Failed to cleanup proxy browser instance: {}", e);
+        }
+
+        Ok(content)
     }
 
     /// Create a new browser instance with a specific user data directory
     pub async fn create_browser_with_user_data(
         &mut self,
         user_data_dir: Option<std::path::PathBuf>,
-        headless: bool,
         instance_id: Option<String>,
     ) -> Result<String> {
         self.browser_manager
-            .create_browser_with_user_data(user_data_dir, headless, instance_id)
+            .create_browser_with_user_data(user_data_dir, instance_id)
             .await
     }
 
@@ -351,12 +392,11 @@ impl WebFetcher {
     pub async fn create_browser_with_proxy(
         &mut self,
         user_data_dir: Option<std::path::PathBuf>,
-        headless: bool,
         instance_id: Option<String>,
         proxy: Option<String>,
     ) -> Result<String> {
         self.browser_manager
-            .create_browser_with_proxy(user_data_dir, headless, instance_id, proxy)
+            .create_browser_with_proxy(user_data_dir, instance_id, proxy)
             .await
     }
 
@@ -482,11 +522,10 @@ impl WebFetcher {
     pub async fn create_multiple_browsers(
         &mut self,
         count: usize,
-        headless: bool,
         base_instance_id: Option<String>,
     ) -> Result<Vec<String>> {
         self.browser_manager
-            .create_multiple_browsers(count, headless, base_instance_id)
+            .create_multiple_browsers(count, base_instance_id)
             .await
     }
 
@@ -708,12 +747,12 @@ mod tests {
     /// Test URL validation for fetch operations
     #[tokio::test]
     async fn test_invalid_url_handling() {
-        let mut fetcher = WebFetcher::new();
+        // Disable browser so cascade does not attempt WebDriver for invalid URLs
+        let mut config = Config::default();
+        config.fetcher.browser = false;
+        let mut fetcher = WebFetcher::from_config(&config);
 
-        // Test with invalid URL
-        let result = fetcher
-            .fetch_raw("not-a-valid-url", FetchMode::PlainRequest)
-            .await;
+        let result = fetcher.fetch_raw("not-a-valid-url").await;
         assert!(result.is_err());
 
         if let Err(e) = result {
@@ -725,7 +764,9 @@ mod tests {
     /// Test URL validation with different formats
     #[tokio::test]
     async fn test_url_validation() {
-        let mut fetcher = WebFetcher::new();
+        let mut config = Config::default();
+        config.fetcher.browser = false;
+        let mut fetcher = WebFetcher::from_config(&config);
 
         // Test various invalid URL formats
         let invalid_urls = vec![
@@ -737,9 +778,7 @@ mod tests {
         ];
 
         for invalid_url in invalid_urls {
-            let result = fetcher
-                .fetch_raw(invalid_url, FetchMode::PlainRequest)
-                .await;
+            let result = fetcher.fetch_raw(invalid_url).await;
             assert!(
                 result.is_err(),
                 "Expected error for invalid URL: {invalid_url}"
@@ -747,13 +786,16 @@ mod tests {
         }
     }
 
-    /// Test FetchMode enum behavior
+    /// Test fetcher browser config defaults
     #[test]
-    fn test_fetch_mode_enum() {
-        // Test that FetchMode variants can be created
-        let _plain = FetchMode::PlainRequest;
-        let _browser_head = FetchMode::BrowserHead;
-        let _browser_headless = FetchMode::BrowserHeadless;
+    fn test_fetcher_browser_config() {
+        let fetcher = WebFetcher::new();
+        assert!(fetcher.browser_enabled());
+
+        let mut config = Config::default();
+        config.fetcher.browser = false;
+        let fetcher = WebFetcher::from_config(&config);
+        assert!(!fetcher.browser_enabled());
     }
 
     /// Test multiple browser instance creation planning
@@ -764,7 +806,7 @@ mod tests {
         // This should not actually create browsers since WebDriver is not available
         // But we can test that the method exists and doesn't panic
         let result = fetcher
-            .create_multiple_browsers(2, true, Some("test".to_string()))
+            .create_multiple_browsers(2, Some("test".to_string()))
             .await;
 
         // In a testing environment without WebDriver, this should fail gracefully
@@ -798,7 +840,6 @@ mod tests {
         let result = fetcher
             .create_browser_with_user_data(
                 Some(user_data_path),
-                true,
                 Some("test_with_data_dir".to_string()),
             )
             .await;
@@ -825,7 +866,6 @@ mod tests {
         let result = fetcher
             .create_browser_with_proxy(
                 None,
-                true,
                 Some("test_proxy".to_string()),
                 Some("http://proxy.example.com:8080".to_string()),
             )
@@ -897,7 +937,10 @@ mod tests {
     /// Test error handling for invalid proxy configuration
     #[tokio::test]
     async fn test_invalid_proxy_handling() {
-        let mut fetcher = WebFetcher::new();
+        // Disable browser so invalid proxy errors surface from plain HTTP path
+        let mut config = Config::default();
+        config.fetcher.browser = false;
+        let mut fetcher = WebFetcher::from_config(&config);
 
         // Test with various invalid proxy formats that will cause errors
         let test_cases = vec![
@@ -912,12 +955,7 @@ mod tests {
 
         for (invalid_proxy, description) in test_cases {
             let result = fetcher
-                .fetch_with_proxy(
-                    "https://httpbin.org/html",
-                    invalid_proxy,
-                    FetchMode::PlainRequest,
-                    Format::Html,
-                )
+                .fetch_with_proxy("https://httpbin.org/html", invalid_proxy, Format::Html)
                 .await;
 
             match result {

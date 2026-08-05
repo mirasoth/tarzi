@@ -1,6 +1,5 @@
 use tarzi::{
-    FetchMode, Format, Result, WebFetcher, config::Config, converter::Converter,
-    search::SearchEngine,
+    Format, Result, WebFetcher, config::Config, converter::Converter, search::SearchEngine,
 };
 
 #[tokio::main]
@@ -19,10 +18,7 @@ async fn main() -> Result<()> {
     let mut fetcher = WebFetcher::from_config(&config);
     let test_url = "https://httpbin.org/html";
 
-    match fetcher
-        .fetch(test_url, FetchMode::PlainRequest, Format::Html)
-        .await
-    {
+    match fetcher.fetch(test_url, Format::Html).await {
         Ok(content) => println!("   HTTP request successful: {} characters", content.len()),
         Err(e) => println!("   HTTP request failed: {e}"),
     }

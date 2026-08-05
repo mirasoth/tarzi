@@ -1,7 +1,6 @@
 use std::time::{Duration, Instant};
 use tarzi::config::Config;
 use tarzi::converter::Format;
-use tarzi::fetcher::FetchMode;
 use tarzi::search::SearchEngine;
 use tarzi::search::parser::ParserFactory;
 use tarzi::search::types::SearchEngineType;
@@ -539,7 +538,7 @@ async fn test_search_with_content_external_webdriver() {
     // Perform search with content fetching
     let result = tokio::time::timeout(
         SEARCH_TEST_TIMEOUT,
-        engine.search_with_content(query, limit, FetchMode::BrowserHead, Format::Markdown),
+        engine.search_with_content(query, limit, Format::Markdown),
     )
     .await;
 

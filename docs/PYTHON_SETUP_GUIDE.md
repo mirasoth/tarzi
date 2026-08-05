@@ -62,8 +62,8 @@ import tarzi
 # Create web fetcher
 fetcher = tarzi.WebFetcher()
 
-# Fetch and convert a webpage
-content = fetcher.fetch('https://example.com', 'plain_request', 'markdown')
+# Fetch and convert a webpage (plain HTTP → headless browser)
+content = fetcher.fetch('https://example.com', 'markdown')
 print(content)
 ```
 
@@ -106,9 +106,9 @@ engine = tarzi.SearchEngine.from_config(config)
 
 ### Standalone Functions
 - `convert_html(html, format)` - Quick HTML conversion
-- `fetch` / `fetch_url(url, mode, format)` - Quick URL fetching
+- `fetch` / `fetch_url(url, format)` - Quick URL fetching
 - `search_web(query, limit)` - Quick web search
-- `search_with_content(query, limit, fetch_mode, format)` - Search and fetch pages
+- `search_with_content(query, limit, format)` - Search and fetch pages
 
 ### Supported Formats
 - `html` - Raw HTML
@@ -116,10 +116,8 @@ engine = tarzi.SearchEngine.from_config(config)
 - `json` - JSON structure
 - `yaml` - YAML format
 
-### Fetch Modes
-- `plain_request` - Simple HTTP request
-- `browser_head` - Browser with head (faster)
-- `browser_headless` - Full headless browser
+### Fetch Cascade
+- Always: plain HTTP → headless browser (if `fetcher.browser` / `TARZI_FETCHER_BROWSER`, default true)
 
 ### Search Engines
 - `bing`, `google`, `google_serper` (alias `serper`), `brave`, `duckduckgo`, `baidu`, `sogou_weixin`

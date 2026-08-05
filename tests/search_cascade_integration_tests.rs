@@ -45,7 +45,7 @@ fn make_config(engine: &str, browser: bool) -> Config {
     config.search.engine = engine.to_string();
     config.search.browser = browser;
     config.search.limit = TEST_LIMIT;
-    config.fetcher.mode = "plain_request".to_string();
+    config.fetcher.browser = false;
     config
 }
 
@@ -683,12 +683,7 @@ async fn test_search_with_content_duckduckgo() {
     let mut search = SearchEngine::from_config(&config);
     let outcome = tokio::time::timeout(
         SEARCH_TIMEOUT,
-        search.search_with_content(
-            TEST_QUERY,
-            1,
-            tarzi::fetcher::FetchMode::PlainRequest,
-            tarzi::converter::Format::Markdown,
-        ),
+        search.search_with_content(TEST_QUERY, 1, tarzi::converter::Format::Markdown),
     )
     .await;
     search.shutdown().await;

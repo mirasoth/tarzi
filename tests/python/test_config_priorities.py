@@ -33,7 +33,7 @@ log_level = "error"
 timeout = 120
 
 [fetcher]
-mode = "head"
+browser = false
 format = "yaml"
 
 [search]
@@ -176,7 +176,7 @@ log_level = "info"
 timeout = 30
 
 [fetcher]
-mode = "browser_headless"
+browser = true
 format = "markdown"
 proxy = "http://config-proxy:8080"
 
@@ -211,7 +211,7 @@ limit = 5
         """Test web driver configuration with different priority sources."""
         config_str = """
 [fetcher]
-mode = "browser_headless"
+browser = true
 web_driver = "chromedriver"
 web_driver_url = "http://localhost:4444"
 timeout = 60
@@ -249,7 +249,7 @@ limit = 8
             config_str = f"""
 [fetcher]
 format = "{fmt}"
-mode = "plain_request"
+browser = false
 
 [search]
 engine = "duckduckgo"
@@ -259,14 +259,12 @@ engine = "duckduckgo"
             fetcher = tarzi.WebFetcher.from_config(config)
             assert isinstance(fetcher, tarzi.WebFetcher)
 
-    def test_fetcher_mode_configuration_priority(self):
-        """Test fetcher mode configuration priority."""
-        modes = ["browser_headless", "browser_head", "plain_request", "head"]
-
-        for mode in modes:
+    def test_fetcher_browser_configuration(self):
+        """Test fetcher.browser configuration options."""
+        for browser in [True, False]:
             config_str = f"""
 [fetcher]
-mode = "{mode}"
+browser = {str(browser).lower()}
 format = "markdown"
 
 [search]

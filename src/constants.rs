@@ -121,14 +121,6 @@ pub const FORMAT_MARKDOWN: &str = "markdown";
 pub const FORMAT_JSON: &str = "json";
 pub const FORMAT_HTML: &str = "html";
 
-// Default fetcher modes
-pub const FETCHER_MODE_BROWSER_HEADLESS: &str = "browser_headless";
-pub const FETCHER_MODE_BROWSER_HEAD: &str = "browser_head";
-pub const FETCHER_MODE_PLAIN_REQUEST: &str = "plain_request";
-pub const FETCHER_MODE_HEAD: &str = "head";
-pub const FETCHER_MODE_HEADLESS: &str = "headless";
-pub const FETCHER_MODE_PLAIN: &str = "plain";
-
 // Default search engines
 pub const SEARCH_ENGINE_DUCKDUCKGO: &str = "duckduckgo";
 pub const SEARCH_ENGINE_BING: &str = "bing";
@@ -143,7 +135,10 @@ pub const SEARCH_ENGINE_GOOGLEAI: &str = "googleai";
 pub const SEARCH_ENGINE_GOOGLE_AI_ALIAS: &str = "google_ai";
 pub const SEARCH_ENGINE_SEARXNG: &str = "searxng";
 
-/// Default: allow headless/headed browser as a search access fallback
+/// Default: allow browser as a fetch access fallback
+pub const DEFAULT_FETCHER_BROWSER: bool = true;
+
+/// Default: allow browser as a search access fallback
 pub const DEFAULT_SEARCH_BROWSER: bool = true;
 
 // API key / host environment variable names
@@ -156,13 +151,13 @@ pub const ENV_SEARX_HOST: &str = "SEARX_HOST";
 // Tarzi-specific configuration environment variable names
 pub const ENV_TARZI_LOG_LEVEL: &str = "TARZI_LOG_LEVEL";
 pub const ENV_TARZI_TIMEOUT: &str = "TARZI_TIMEOUT";
-pub const ENV_TARZI_FETCHER_MODE: &str = "TARZI_FETCHER_MODE";
 pub const ENV_TARZI_FETCHER_FORMAT: &str = "TARZI_FETCHER_FORMAT";
 pub const ENV_TARZI_USER_AGENT: &str = "TARZI_USER_AGENT";
 pub const ENV_TARZI_FETCHER_TIMEOUT: &str = "TARZI_FETCHER_TIMEOUT";
 pub const ENV_TARZI_PROXY: &str = "TARZI_PROXY";
 pub const ENV_TARZI_WEB_DRIVER: &str = "TARZI_WEB_DRIVER";
 pub const ENV_TARZI_WEB_DRIVER_URL: &str = "TARZI_WEB_DRIVER_URL";
+pub const ENV_TARZI_FETCHER_BROWSER: &str = "TARZI_FETCHER_BROWSER";
 pub const ENV_TARZI_SEARCH_ENGINE: &str = "TARZI_SEARCH_ENGINE";
 pub const ENV_TARZI_QUERY_PATTERN: &str = "TARZI_QUERY_PATTERN";
 pub const ENV_TARZI_SEARCH_LIMIT: &str = "TARZI_SEARCH_LIMIT";

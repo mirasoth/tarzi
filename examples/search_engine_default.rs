@@ -6,8 +6,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     // Load configuration with proper precedence
-    let mut config = Config::load().unwrap_or_default();
-    config.fetcher.mode = "browser_head".to_string();
+    let config = Config::load().unwrap_or_default();
+
     // Cascade: API (if credentials) → plain HTTP → browser (if search.browser)
     println!(
         "Using engine={} browser={}",

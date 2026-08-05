@@ -39,7 +39,7 @@ async fn run_search(engine: &str, browser: bool, query: &str, limit: usize) {
     config.search.engine = engine.to_string();
     config.search.browser = browser;
     config.search.limit = limit;
-    config.fetcher.mode = "plain_request".to_string();
+    config.fetcher.browser = false;
 
     let mut search = SearchEngine::from_config(&config);
     match search.search(query, limit).await {

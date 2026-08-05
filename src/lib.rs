@@ -13,7 +13,7 @@ pub use error::{Result, TarziError};
 
 // Re-export main types for convenience
 pub use converter::{Converter, Format};
-pub use fetcher::{FetchMode, WebFetcher};
+pub use fetcher::WebFetcher;
 pub use search::{SearchEngine, SearchResult};
 
 #[cfg(test)]
@@ -30,22 +30,6 @@ mod tests {
     }
 
     #[test]
-    fn test_fetch_mode_parsing() {
-        assert_eq!(
-            FetchMode::from_str("plain_request").unwrap(),
-            FetchMode::PlainRequest
-        );
-        assert_eq!(
-            FetchMode::from_str("browser_head").unwrap(),
-            FetchMode::BrowserHead
-        );
-        assert_eq!(
-            FetchMode::from_str("browser_headless").unwrap(),
-            FetchMode::BrowserHeadless
-        );
-    }
-
-    #[test]
     fn test_modular_structure() {
         // Test that modules can be instantiated
         let _converter = Converter::new();
@@ -54,7 +38,6 @@ mod tests {
 
         // Test that types can be created
         let _format = Format::Markdown;
-        let _fetch_mode = FetchMode::PlainRequest;
     }
 
     #[test]

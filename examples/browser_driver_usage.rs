@@ -1,9 +1,4 @@
-use tarzi::{
-    Result,
-    config::Config,
-    converter::Format,
-    fetcher::{types::FetchMode, webfetcher::WebFetcher},
-};
+use tarzi::{Result, config::Config, converter::Format, fetcher::WebFetcher};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -47,12 +42,9 @@ async fn main() -> Result<()> {
     }
     println!();
 
-    // Test browser fetching
-    println!("Attempting to fetch content using browser (headless mode)...");
-    match fetcher
-        .fetch(test_url, FetchMode::BrowserHeadless, Format::Html)
-        .await
-    {
+    // Test fetch cascade (plain HTTP → headless browser)
+    println!("Attempting to fetch content (plain HTTP → headless browser)...");
+    match fetcher.fetch(test_url, Format::Html).await {
         Ok(content) => {
             println!("✓ Successfully fetched content!");
             println!("Content length: {} characters", content.len());
@@ -65,43 +57,18 @@ async fn main() -> Result<()> {
                 println!("   PID: {:?}", driver_info.pid);
                 println!("   Started: {:?}", driver_info.started_at);
             } else {
-                println!("🌐 Using external WebDriver server");
-            }
-
-            println!();
-            println!("Content preview (first 200 chars):");
-            println!("{}", &content.chars().take(200).collect::<String>());
-            if content.len() > 200 {
-                println!("...");
+                println!("🌐 Using external WebDriver or plain HTTP");
             }
         }
         Err(e) => {
-            println!("✗ Failed to fetch content: {e}");
-            println!();
-            println!("This might happen if:");
-            println!("- No WebDriver is available at the configured URL");
-            println!("- No WebDriver is running at the default port (9515)");
-            println!("- ChromeDriver or GeckoDriver is not installed");
-            println!("- Network connectivity issues");
-            println!();
-            println!("To fix this:");
-            println!("1. Install ChromeDriver: https://chromedriver.chromium.org/");
-            println!("2. Or install GeckoDriver: https://github.com/mozilla/geckodriver/releases");
-            println!("3. Or set TARZI_WEB_DRIVER_URL for an external WebDriver server");
+            println!("✗ Fetch failed: {e}");
+            println!("  This is expected if WebDriver is not available and the site needs JS");
         }
     }
 
-    // Clean up managed driver if any
-    if fetcher.has_managed_driver() {
-        println!();
-        println!("Cleaning up managed driver...");
-        match fetcher.cleanup_managed_driver().await {
-            Ok(()) => println!("✓ Managed driver cleaned up successfully"),
-            Err(e) => println!("⚠ Warning: Failed to clean up managed driver: {e}"),
-        }
-    }
+    // Explicit cleanup
+    fetcher.shutdown().await;
+    println!("\n=== Demo completed ===");
 
-    println!();
-    println!("=== Demo Complete ===");
     Ok(())
 }
