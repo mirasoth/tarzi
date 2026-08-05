@@ -1,11 +1,10 @@
 use crate::constants::{
-    BAIDU_QUERY_PATTERN, BING_QUERY_PATTERN, BRAVE_API_QUERY_PATTERN, BRAVE_QUERY_PATTERN,
+    BAIDU_QUERY_PATTERN, BING_QUERY_PATTERN, BRAVE_QUERY_PATTERN, DEFAULT_SEARCH_ENGINE,
     DUCKDUCKGO_PLAIN_QUERY_PATTERN, DUCKDUCKGO_QUERY_PATTERN, GOOGLE_QUERY_PATTERN,
-    GOOGLEAI_API_URL_PATTERN, SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING, SEARCH_ENGINE_BRAVE,
-    SEARCH_ENGINE_DUCKDUCKGO, SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_GOOGLE_AI_ALIAS,
-    SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_GOOGLEAI, SEARCH_ENGINE_SEARXNG,
-    SEARCH_ENGINE_SERPER_ALIAS, SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_ENGINE_TAVILY, SERPER_API_URL,
-    SOUGOU_WEIXIN_QUERY_PATTERN, TAVILY_API_URL,
+    SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DUCKDUCKGO,
+    SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_GOOGLE_AI_ALIAS, SEARCH_ENGINE_GOOGLE_SERPER,
+    SEARCH_ENGINE_GOOGLEAI, SEARCH_ENGINE_SEARXNG, SEARCH_ENGINE_SERPER_ALIAS,
+    SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_ENGINE_TAVILY, SOUGOU_WEIXIN_QUERY_PATTERN,
 };
 use crate::error::TarziError;
 use serde::{Deserialize, Serialize};
@@ -134,17 +133,6 @@ impl SearchEngineType {
             other => format!("{other:?} requires credentials"),
         }
     }
-
-    pub fn api_query_pattern(&self) -> Option<&'static str> {
-        match self {
-            SearchEngineType::BraveSearch => Some(BRAVE_API_QUERY_PATTERN),
-            SearchEngineType::GoogleSerper => Some(SERPER_API_URL),
-            SearchEngineType::Tavily => Some(TAVILY_API_URL),
-            SearchEngineType::GoogleAi => Some(GOOGLEAI_API_URL_PATTERN),
-            SearchEngineType::SearxNG => None,
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -157,7 +145,8 @@ pub enum AccessMethod {
 /// Parse an ordered engine list from a comma-separated string.
 ///
 /// Empty tokens are ignored. Duplicates are removed while preserving first-seen order.
-/// An empty / whitespace-only string yields `[Bing]` (default engine).
+/// An empty / whitespace-only string yields the default failover list
+/// (`duckduckgo`, `bing`, `brave`).
 pub fn parse_engine_list(s: &str) -> Result<Vec<SearchEngineType>, TarziError> {
     let mut engines = Vec::new();
     for part in s.split(',') {
@@ -171,10 +160,33 @@ pub fn parse_engine_list(s: &str) -> Result<Vec<SearchEngineType>, TarziError> {
         }
     }
     if engines.is_empty() {
-        Ok(vec![SearchEngineType::Bing])
+        Ok(default_engine_list())
     } else {
         Ok(engines)
     }
+}
+
+/// Default ordered failover list (`DEFAULT_SEARCH_ENGINE`).
+pub fn default_engine_list() -> Vec<SearchEngineType> {
+    // Parse the constant directly (never empty) so the list cannot drift from
+    // `DEFAULT_SEARCH_ENGINE`.
+    let mut engines = Vec::new();
+    for part in DEFAULT_SEARCH_ENGINE.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let engine = SearchEngineType::from_str(part)
+            .unwrap_or_else(|e| panic!("invalid DEFAULT_SEARCH_ENGINE token '{part}': {e}"));
+        if !engines.contains(&engine) {
+            engines.push(engine);
+        }
+    }
+    assert!(
+        !engines.is_empty(),
+        "DEFAULT_SEARCH_ENGINE must yield at least one engine"
+    );
+    engines
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -264,11 +276,8 @@ mod tests {
             parse_engine_list("brave, brave, bing").unwrap(),
             vec![SearchEngineType::BraveSearch, SearchEngineType::Bing]
         );
-        assert_eq!(parse_engine_list("").unwrap(), vec![SearchEngineType::Bing]);
-        assert_eq!(
-            parse_engine_list("  ,  ").unwrap(),
-            vec![SearchEngineType::Bing]
-        );
+        assert_eq!(parse_engine_list("").unwrap(), default_engine_list());
+        assert_eq!(parse_engine_list("  ,  ").unwrap(), default_engine_list());
         assert!(parse_engine_list("brave,not_an_engine").is_err());
         assert_eq!(
             parse_engine_list("serper").unwrap(),
@@ -352,13 +361,6 @@ mod tests {
             assert_eq!(engine.supports_api(), api, "{engine:?} supports_api");
             assert_eq!(engine.supports_web(), web, "{engine:?} supports_web");
             assert_eq!(engine.is_api_only(), api_only, "{engine:?} is_api_only");
-            if engine != SearchEngineType::SearxNG {
-                assert_eq!(
-                    engine.api_query_pattern().is_some(),
-                    api,
-                    "{engine:?} api_query_pattern"
-                );
-            }
             if web {
                 assert!(
                     !engine.browser_query_pattern().is_empty(),

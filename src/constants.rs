@@ -106,30 +106,19 @@ pub const FIREFOX_DRIVER_ARGS: &[&str] = &["--log=warn"];
 // Default Configuration Values
 // ============================================================================
 
-/// Default log level
-pub const DEFAULT_LOG_LEVEL: &str = "info";
-
 /// Default search limit
 pub const DEFAULT_SEARCH_LIMIT: usize = 5;
 
-/// Default fetcher mode string
-pub const DEFAULT_FETCH_MODE: &str = "browser_headless";
-
-/// Default converter format string
-pub const DEFAULT_FORMAT: &str = "markdown";
-
-/// Default search engine
-pub const DEFAULT_SEARCH_ENGINE: &str = "bing";
+/// Default search engine failover list (plain-HTTP-friendly first)
+pub const DEFAULT_SEARCH_ENGINE: &str = "duckduckgo,bing,brave";
 
 // Default log levels
 pub const LOG_LEVEL_INFO: &str = "info";
 pub const LOG_LEVEL_DEBUG: &str = "debug";
-pub const LOG_LEVEL_WARN: &str = "warn";
 
 // Default formats
 pub const FORMAT_MARKDOWN: &str = "markdown";
 pub const FORMAT_JSON: &str = "json";
-pub const FORMAT_YAML: &str = "yaml";
 pub const FORMAT_HTML: &str = "html";
 
 // Default fetcher modes
@@ -215,5 +204,5 @@ pub const DEFAULT_GOOGLEAI_MODEL: &str = "gemini-2.0-flash";
 // Default Values
 // ============================================================================
 
-/// Default query pattern (Bing)
-pub const DEFAULT_QUERY_PATTERN: &str = BING_QUERY_PATTERN;
+/// Default query pattern (matches first engine in DEFAULT_SEARCH_ENGINE)
+pub const DEFAULT_QUERY_PATTERN: &str = DUCKDUCKGO_QUERY_PATTERN;

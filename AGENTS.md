@@ -56,7 +56,7 @@ tarzi/
 
 ## Implementation Considerations for Tarzi
 
-- **Default engine configuration**: ChromeDriver as default webdriver. Bing as default engine. Markdown as defalt fetch format.
+- **Default engine configuration**: ChromeDriver as default webdriver. `duckduckgo,bing,brave` as default engine failover. Markdown as defalt fetch format.
 
 ## Testing Strategy & Guidelines
 
@@ -119,18 +119,21 @@ Here is the definition and logics about search engines:
 - The web query path always requires no API key.
 - The API path of some engines may require an API key (probed from env before any request).
 - Access cascade (always): API (if available) → plain HTTP → headless browser (if `search.browser` / `TARZI_SEARCH_BROWSER` is true, default true).
-- `TARZI_SEARCH_ENGINE` accepts a single engine or a comma-separated ordered failover list (e.g. `brave,duckduckgo,bing`).
+- `TARZI_SEARCH_ENGINE` accepts a single engine or a comma-separated ordered failover list (default: `duckduckgo,bing,brave`).
 - API-only engines without credentials are skipped (multi-engine) or error (single engine) without hitting the network.
 
 ### Known Engine List
 
 | Engine         | Web Query | API Query | API Key Required | Notes |
 |----------------|-----------|-----------|------------------|-------|
+| DuckDuckGo     | Yes       | No        | N/A              | First in default failover; plain HTML endpoint |
 | Bing           | Yes       | No        | N/A              | Bing Search API retired |
+| Brave          | Yes       | Yes       | Yes for API (`BRAVE_API_KEY`) | In default failover; API preferred when key present |
 | Google         | Yes       | No        | N/A              | HTML web query only |
 | Google Serper  | No        | Yes       | Yes (`SERPER_API_KEY`) | Engine id: `google_serper` (alias `serper`) |
-| Brave          | Yes       | Yes       | Yes for API (`BRAVE_API_KEY`) | API preferred when key present |
-| DuckDuckGo     | Yes       | No        | N/A              | Plain HTML endpoint preferred before browser |
+| Tavily         | No        | Yes       | Yes (`TAVILY_API_KEY`) | Engine id: `tavily` |
+| Google AI      | No        | Yes       | Yes (`GEMINI_API_KEY`) | Engine id: `googleai` (alias `google_ai`) |
+| SearxNG        | No        | Yes       | Host (`SEARX_HOST`) | Engine id: `searxng` |
 | Baidu          | Yes       | No        | N/A              | |
 | Sogou Weixin   | Yes       | No        | N/A              | Engine id: `sogou_weixin` |
 

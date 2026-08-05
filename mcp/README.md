@@ -123,11 +123,13 @@ Search the web using Tarzi search engines.
 3. **browser** when `TARZI_SEARCH_BROWSER=true` (default)
 
 ```bash
-export TARZI_SEARCH_ENGINE=brave,duckduckgo,bing
+export TARZI_SEARCH_ENGINE=duckduckgo,bing,brave
 export TARZI_SEARCH_BROWSER=true
 ```
 
 Supported engines include `bing`, `google`, `google_serper` (alias `serper`), `brave`, `duckduckgo`, `baidu`, `sogou_weixin`.
+
+Default failover is `duckduckgo,bing,brave`.
 
 **Returns:** List of search results with title, URL, snippet, and rank.
 

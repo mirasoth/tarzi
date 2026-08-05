@@ -41,7 +41,7 @@ Example Catalog
    Requires ``SERPER_API_KEY``.
 
 **Default engine**
-   ``search_engine_default`` — uses env/defaults (Bing + ``auto``).
+   ``search_engine_default`` — uses env/defaults (``duckduckgo,bing,brave`` failover + cascade).
 
 **Sogou Weixin**
    ``sogou_weixin_search`` — WeChat article search via Sogou.

@@ -66,7 +66,7 @@ Basic Usage
 Search Engines and Access Cascade
 ---------------------------------
 
-Configure ``Config.search.engine`` (comma-separated failover OK) and ``Config.search.browser`` (default true). Defaults: Bing + browser enabled.
+Configure ``Config.search.engine`` (comma-separated failover OK) and ``Config.search.browser`` (default true). Defaults: ``duckduckgo,bing,brave`` + browser enabled.
 
 .. code-block:: rust
 

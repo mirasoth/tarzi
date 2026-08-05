@@ -211,7 +211,7 @@ def get_config() -> str:
 - Default timeout: 30s
 - Default user agent: Tarzi Search Client
 - Search cascade: API (if credentials) → plain HTTP → browser (TARZI_SEARCH_BROWSER)
-- Multi-engine failover: TARZI_SEARCH_ENGINE=brave,duckduckgo,bing
+- Multi-engine failover: TARZI_SEARCH_ENGINE=duckduckgo,bing,brave (default)
 - API keys (env): BRAVE_API_KEY, SERPER_API_KEY, TAVILY_API_KEY, GEMINI_API_KEY, SEARX_HOST
 - Engines: bing, google, google_serper, brave, duckduckgo, baidu, sogou_weixin, tavily, googleai, searxng
 - Available fetch modes: plain_request, browser_headless, browser_headed

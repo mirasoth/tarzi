@@ -36,7 +36,7 @@ def main():
     except Exception as e:
         print(f"Fetch failed: {e}")
 
-    # SearchEngine (default: bing + access cascade)
+    # SearchEngine (default: duckduckgo,bing,brave + access cascade)
     search_engine = tarzi.SearchEngine()
     try:
         results = search_engine.search("machine learning", 2)

@@ -29,7 +29,7 @@ Engine Capabilities
    * - ``bing``
      - Yes
      - No
-     - Default engine
+     - In default failover list
    * - ``google``
      - Yes
      - No
@@ -41,11 +41,11 @@ Engine Capabilities
    * - ``brave``
      - Yes
      - Yes
-     - ``BRAVE_API_KEY`` for API path
+     - ``BRAVE_API_KEY`` for API path; in default failover
    * - ``duckduckgo``
      - Yes
      - No
-     - Plain HTML URL differs from browser SERP
+     - First in default failover; plain HTML URL differs from browser SERP
    * - ``baidu`` / ``sogou_weixin``
      - Yes
      - No

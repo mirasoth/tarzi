@@ -71,7 +71,7 @@ print(content)
 ```python
 import tarzi
 
-# Default: bing + cascade (API → plain HTTP → browser when supported)
+# Default: duckduckgo,bing,brave failover + cascade (API → plain HTTP → browser when supported)
 engine = tarzi.SearchEngine()
 results = engine.search('python programming', 5)
 for result in results:

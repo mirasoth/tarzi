@@ -1,10 +1,10 @@
 use crate::constants::{
-    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_BROWSER, DEFAULT_SEARCH_LIMIT, DEFAULT_TIMEOUT_SECS,
-    ENV_TARZI_FETCHER_FORMAT, ENV_TARZI_FETCHER_MODE, ENV_TARZI_FETCHER_TIMEOUT,
-    ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY, ENV_TARZI_QUERY_PATTERN, ENV_TARZI_SEARCH_BROWSER,
-    ENV_TARZI_SEARCH_ENGINE, ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_TIMEOUT, ENV_TARZI_USER_AGENT,
-    ENV_TARZI_WEB_DRIVER, ENV_TARZI_WEB_DRIVER_URL, FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN,
-    LOG_LEVEL_INFO, SEARCH_ENGINE_BING,
+    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_BROWSER, DEFAULT_SEARCH_ENGINE, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TIMEOUT_SECS, ENV_TARZI_FETCHER_FORMAT, ENV_TARZI_FETCHER_MODE,
+    ENV_TARZI_FETCHER_TIMEOUT, ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY, ENV_TARZI_QUERY_PATTERN,
+    ENV_TARZI_SEARCH_BROWSER, ENV_TARZI_SEARCH_ENGINE, ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_TIMEOUT,
+    ENV_TARZI_USER_AGENT, ENV_TARZI_WEB_DRIVER, ENV_TARZI_WEB_DRIVER_URL,
+    FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN, LOG_LEVEL_INFO,
 };
 use crate::{Result, error::TarziError};
 use serde::{Deserialize, Serialize};
@@ -350,7 +350,7 @@ fn default_fetch_timeout() -> u64 {
 }
 
 fn default_search_engine() -> String {
-    SEARCH_ENGINE_BING.to_string()
+    DEFAULT_SEARCH_ENGINE.to_string()
 }
 
 fn default_query_pattern() -> String {
@@ -413,7 +413,7 @@ mod tests {
             crate::constants::DEFAULT_USER_AGENT
         );
         assert_eq!(config.fetcher.timeout, 30);
-        assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
+        assert_eq!(config.search.engine, DEFAULT_SEARCH_ENGINE);
         assert_eq!(config.search.query_pattern, DEFAULT_QUERY_PATTERN);
         assert_eq!(config.search.limit, DEFAULT_SEARCH_LIMIT);
         assert!(config.search.browser);
@@ -641,7 +641,7 @@ web_driver_url = "http://localhost:9999"
             }
 
             let config = Config::load().unwrap();
-            assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
+            assert_eq!(config.search.engine, DEFAULT_SEARCH_ENGINE);
             assert!(config.search.browser);
             assert!(config.fetcher.proxy.is_none());
             assert!(config.search.api_key.is_none());

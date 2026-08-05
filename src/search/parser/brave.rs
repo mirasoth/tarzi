@@ -159,8 +159,6 @@ impl BraveParser {
         // Look for JSON data embedded in script tags or data attributes
         // The search results are typically embedded in a JavaScript object
 
-        // println!("DEBUG: Looking for JSON patterns in HTML ({} chars)", html.len());
-
         // Pattern: Look for individual result objects instead of arrays
         if let Some(start) = html.find("{title:") {
             // Find the end of this specific result object

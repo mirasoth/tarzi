@@ -457,51 +457,6 @@ impl PySearchEngine {
         })
     }
 
-    /// Search using a proxy
-    ///
-    /// Args:
-    ///     query (str): Search query
-    ///     limit (int): Maximum number of results
-    ///     proxy (str): Proxy URL (e.g., "http://proxy:port")
-    ///     
-    /// Returns:
-    ///     List[SearchResult]: List of search results
-    ///     
-    /// Raises:
-    ///     RuntimeError: If search fails
-    fn search_with_proxy(
-        &mut self,
-        py: Python<'_>,
-        query: &str,
-        limit: usize,
-        proxy: &str,
-    ) -> PyResult<Vec<PySearchResult>> {
-        let owned_query = query.to_owned();
-        let owned_proxy = proxy.to_owned();
-        let engine = &mut self.inner;
-        block_on_without_gil(py, async move {
-            engine
-                .search_with_proxy(&owned_query, limit, &owned_proxy)
-                .await
-        })?
-        .map(|results| {
-            results
-                .into_iter()
-                .map(|r| PySearchResult {
-                    title: r.title,
-                    url: r.url,
-                    snippet: r.snippet,
-                    rank: r.rank,
-                })
-                .collect()
-        })
-        .map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Search with proxy failed for query '{query}': {e}"
-            ))
-        })
-    }
-
     /// Shutdown browser and driver resources
     ///
     /// This method ensures proper cleanup of browser instances and WebDriver processes.

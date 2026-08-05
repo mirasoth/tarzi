@@ -210,8 +210,8 @@ Access cascade is always on:
 - **plain HTTP**: public SERP URL
 - **browser**: when ``search.browser`` / ``TARZI_SEARCH_BROWSER`` is true (default)
 
-Supported engines: ``bing`` (default), ``google``, ``google_serper`` (alias ``serper``),
-``brave``, ``duckduckgo``, ``baidu``, ``sogou_weixin``.
+Supported engines: ``duckduckgo,bing,brave`` (default failover), ``google``, ``google_serper`` (alias ``serper``),
+``baidu``, ``sogou_weixin``, plus API-only ``tavily``, ``googleai``, ``searxng``.
 
 API Search Providers
 ~~~~~~~~~~~~~~~~~~~~

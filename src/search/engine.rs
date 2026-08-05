@@ -3,7 +3,9 @@ use super::api::{
     search_brave_api, search_googleai_api, search_searxng_api, search_serper_api, search_tavily_api,
 };
 use super::parser::ParserFactory;
-use super::types::{AccessMethod, SearchEngineType, SearchResult, parse_engine_list};
+use super::types::{
+    AccessMethod, SearchEngineType, SearchResult, default_engine_list, parse_engine_list,
+};
 use crate::config::Config;
 use crate::{
     Result,
@@ -34,11 +36,13 @@ pub struct SearchEngine {
 
 impl SearchEngine {
     pub fn new() -> Self {
+        let engines = default_engine_list();
+        let engine_type = engines[0];
         Self {
             fetcher: WebFetcher::new(),
-            engines: vec![SearchEngineType::Bing],
-            engine_type: SearchEngineType::Bing,
-            query_pattern: SearchEngineType::Bing.get_query_pattern(),
+            engines,
+            engine_type,
+            query_pattern: engine_type.get_query_pattern(),
             custom_query_pattern: false,
             user_agent: crate::constants::DEFAULT_USER_AGENT.to_string(),
             parser_factory: ParserFactory::new(),
@@ -72,8 +76,8 @@ impl SearchEngine {
     pub fn from_config(config: &Config) -> Self {
         let fetcher = crate::fetcher::WebFetcher::from_config(config);
 
-        let engines = parse_engine_list(&config.search.engine)
-            .unwrap_or_else(|_| vec![SearchEngineType::Bing]);
+        let engines =
+            parse_engine_list(&config.search.engine).unwrap_or_else(|_| default_engine_list());
         let engine_type = engines[0];
 
         let custom_query_pattern = config.search.query_pattern != DEFAULT_QUERY_PATTERN;
@@ -111,9 +115,7 @@ impl SearchEngine {
 
         for engine in self.engines.clone() {
             self.engine_type = engine;
-            if self.custom_query_pattern && self.engines.len() == 1 {
-                // keep configured pattern
-            } else {
+            if !(self.custom_query_pattern && self.engines.len() == 1) {
                 self.query_pattern = engine.get_query_pattern();
             }
 
@@ -382,23 +384,6 @@ impl SearchEngine {
         Ok(results_with_content)
     }
 
-    pub async fn search_with_proxy(
-        &mut self,
-        query: &str,
-        limit: usize,
-        proxy: &str,
-    ) -> Result<Vec<SearchResult>> {
-        info!("Starting search with proxy hint: {}", proxy);
-        let _ = crate::config::get_proxy_from_env_or_config(&Some(proxy.to_string()));
-        self.search(query, limit).await
-    }
-
-    /// Backward compatibility
-    pub async fn cleanup(&mut self) -> Result<()> {
-        self.fetcher.shutdown().await;
-        Ok(())
-    }
-
     /// Ensure to explicitly shut down browser and driver resources
     pub async fn shutdown(&mut self) {
         self.fetcher.shutdown().await;
@@ -411,12 +396,6 @@ impl Default for SearchEngine {
     }
 }
 
-impl Drop for SearchEngine {
-    fn drop(&mut self) {
-        info!("SearchEngine dropping - cleanup will be handled by WebFetcher");
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,13 +404,20 @@ mod tests {
     #[test]
     fn test_search_engine_default() {
         let engine = SearchEngine::new();
-        assert_eq!(engine.engine_type(), &SearchEngineType::Bing);
+        assert_eq!(engine.engine_type(), &SearchEngineType::DuckDuckGo);
         assert_eq!(
             engine.query_pattern(),
-            SearchEngineType::Bing.get_query_pattern()
+            SearchEngineType::DuckDuckGo.get_query_pattern()
         );
         assert!(engine.browser_enabled());
-        assert_eq!(engine.engines(), &[SearchEngineType::Bing]);
+        assert_eq!(
+            engine.engines(),
+            &[
+                SearchEngineType::DuckDuckGo,
+                SearchEngineType::Bing,
+                SearchEngineType::BraveSearch,
+            ]
+        );
     }
 
     #[test]
@@ -468,7 +454,7 @@ mod tests {
     fn test_search_engine_getters() {
         let engine = SearchEngine::new();
 
-        assert_eq!(engine.engine_type(), &SearchEngineType::Bing);
+        assert_eq!(engine.engine_type(), &SearchEngineType::DuckDuckGo);
         assert!(!engine.query_pattern().is_empty());
         assert!(!engine.user_agent().is_empty());
         assert_eq!(engine.user_agent(), crate::constants::DEFAULT_USER_AGENT);
@@ -488,12 +474,20 @@ mod tests {
     }
 
     #[test]
-    fn test_search_engine_fallback_to_bing() {
+    fn test_search_engine_fallback_to_default() {
         let mut config = crate::config::Config::new();
         config.search.engine = "invalid_engine".to_string();
 
         let engine = SearchEngine::from_config(&config);
-        assert_eq!(engine.engine_type(), &SearchEngineType::Bing);
+        assert_eq!(engine.engine_type(), &SearchEngineType::DuckDuckGo);
+        assert_eq!(
+            engine.engines(),
+            &[
+                SearchEngineType::DuckDuckGo,
+                SearchEngineType::Bing,
+                SearchEngineType::BraveSearch,
+            ]
+        );
     }
 
     #[test]

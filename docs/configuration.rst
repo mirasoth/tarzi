@@ -151,7 +151,7 @@ Search Engines and Access Cascade
 ---------------------------------
 
 ``search.engine`` / ``TARZI_SEARCH_ENGINE`` selects the provider, or a
-comma-separated **ordered failover list** (e.g. ``brave,duckduckgo,bing``).
+comma-separated **ordered failover list**. Default is ``duckduckgo,bing,brave``.
 
 ``search.browser`` / ``TARZI_SEARCH_BROWSER`` (default ``true``) controls whether
 browser automation may be used as the last search access step.

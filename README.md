@@ -80,7 +80,7 @@ Both CLIs support the same commands and configuration precedence.
 **Breaking change:** `tarzi.toml` / `~/.tarzi.toml` are removed. Configure with env vars (see [.env.example](.env.example)):
 
 ```bash
-export TARZI_SEARCH_ENGINE=brave           # or ordered list: brave,duckduckgo,bing
+export TARZI_SEARCH_ENGINE=duckduckgo,bing,brave  # default; or single engine / other ordered list
 export TARZI_SEARCH_BROWSER=true           # false disables browser fallback (default true)
 # Engine API keys (tarzi has no product API key):
 export BRAVE_API_KEY=...                   # or SERPER_API_KEY for google_serper

@@ -66,8 +66,6 @@ pub fn has_api_credentials(
 ) -> bool {
     if engine.requires_base_url() {
         base_url.as_ref().is_some_and(|u| !u.is_empty())
-    } else if engine.requires_api_key() || engine.is_api_only() {
-        api_key.as_ref().is_some_and(|k| !k.is_empty())
     } else {
         api_key.as_ref().is_some_and(|k| !k.is_empty())
     }
