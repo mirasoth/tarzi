@@ -14,6 +14,14 @@ fn create_test_fetcher() -> WebFetcher {
     WebFetcher::from_config(&config)
 }
 
+/// Plain-HTTP-only fetcher (no browser cascade) for error-path assertions
+fn create_plain_only_fetcher() -> WebFetcher {
+    let mut config = tarzi::config::Config::default();
+    config.fetcher.timeout = 30;
+    config.fetcher.browser = false;
+    WebFetcher::from_config(&config)
+}
+
 /// Helper function to check if a URL is reachable
 async fn is_url_reachable(url: &str) -> bool {
     use reqwest::Client;
@@ -211,7 +219,8 @@ async fn test_fetch_raw() {
 
 #[tokio::test]
 async fn test_fetch_invalid_url() {
-    let mut fetcher = WebFetcher::new();
+    // Disable browser so cascade does not mask the HTTP/DNS failure
+    let mut fetcher = create_plain_only_fetcher();
 
     // Test fetching from a non-existent URL
     let result = fetcher
@@ -227,7 +236,7 @@ async fn test_fetch_invalid_url() {
 
 #[tokio::test]
 async fn test_fetch_timeout_url() {
-    let mut fetcher = WebFetcher::new();
+    let mut fetcher = create_plain_only_fetcher();
 
     // Test fetching from a URL that might timeout
     // Using a slow endpoint or non-existent IP
@@ -519,7 +528,7 @@ async fn test_fetch_404_error() {
         return;
     }
 
-    let mut fetcher = create_test_fetcher();
+    let mut fetcher = create_plain_only_fetcher();
     let result = fetcher.fetch(test_url, Format::Html).await;
 
     match result {
@@ -545,7 +554,7 @@ async fn test_fetch_500_error() {
         return;
     }
 
-    let mut fetcher = create_test_fetcher();
+    let mut fetcher = create_plain_only_fetcher();
     let result = fetcher.fetch(test_url, Format::Html).await;
 
     match result {

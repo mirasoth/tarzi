@@ -131,3 +131,7 @@ def test_search_with_content_function(test_query):
 
 
 @pytest.mark.integration
+def test_search_with_content_invalid_format(test_query):
+    """Test search_with_content with invalid format."""
+    with pytest.raises(Exception):
+        tarzi.search_with_content(test_query, 1, "invalid_format")
