@@ -1,10 +1,12 @@
 use crate::constants::{
     BAIDU_QUERY_PATTERN, BING_QUERY_PATTERN, BRAVE_API_QUERY_PATTERN, BRAVE_QUERY_PATTERN,
     DUCKDUCKGO_PLAIN_QUERY_PATTERN, DUCKDUCKGO_QUERY_PATTERN, GOOGLE_QUERY_PATTERN,
-    SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DUCKDUCKGO,
-    SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_SERPER_ALIAS,
-    SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_MODE_APIQUERY, SEARCH_MODE_AUTO, SEARCH_MODE_WEBQUERY,
-    SERPER_API_URL, SOUGOU_WEIXIN_QUERY_PATTERN,
+    GOOGLEAI_API_URL_PATTERN, SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING, SEARCH_ENGINE_BRAVE,
+    SEARCH_ENGINE_DUCKDUCKGO, SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_GOOGLE_AI_ALIAS,
+    SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_GOOGLEAI, SEARCH_ENGINE_SEARXNG,
+    SEARCH_ENGINE_SERPER_ALIAS, SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_ENGINE_TAVILY,
+    SEARCH_MODE_APIQUERY, SEARCH_MODE_AUTO, SEARCH_MODE_WEBQUERY, SERPER_API_URL,
+    SOUGOU_WEIXIN_QUERY_PATTERN, TAVILY_API_URL,
 };
 use crate::error::TarziError;
 use serde::{Deserialize, Serialize};
@@ -19,6 +21,9 @@ pub enum SearchEngineType {
     BraveSearch,
     Baidu,
     SougouWeixin,
+    Tavily,
+    GoogleAi,
+    SearxNG,
 }
 
 impl FromStr for SearchEngineType {
@@ -35,6 +40,11 @@ impl FromStr for SearchEngineType {
             SEARCH_ENGINE_BRAVE => Ok(SearchEngineType::BraveSearch),
             SEARCH_ENGINE_BAIDU => Ok(SearchEngineType::Baidu),
             SEARCH_ENGINE_SOUGOU_WEIXIN => Ok(SearchEngineType::SougouWeixin),
+            SEARCH_ENGINE_TAVILY => Ok(SearchEngineType::Tavily),
+            SEARCH_ENGINE_GOOGLEAI | SEARCH_ENGINE_GOOGLE_AI_ALIAS => {
+                Ok(SearchEngineType::GoogleAi)
+            }
+            SEARCH_ENGINE_SEARXNG => Ok(SearchEngineType::SearxNG),
             _ => Err(TarziError::InvalidEngine(s.to_string())),
         }
     }
@@ -51,10 +61,13 @@ impl SearchEngineType {
             SearchEngineType::Bing => BING_QUERY_PATTERN.to_string(),
             SearchEngineType::DuckDuckGo => DUCKDUCKGO_QUERY_PATTERN.to_string(),
             SearchEngineType::Google => GOOGLE_QUERY_PATTERN.to_string(),
-            SearchEngineType::GoogleSerper => String::new(),
             SearchEngineType::BraveSearch => BRAVE_QUERY_PATTERN.to_string(),
             SearchEngineType::Baidu => BAIDU_QUERY_PATTERN.to_string(),
             SearchEngineType::SougouWeixin => SOUGOU_WEIXIN_QUERY_PATTERN.to_string(),
+            SearchEngineType::GoogleSerper
+            | SearchEngineType::Tavily
+            | SearchEngineType::GoogleAi
+            | SearchEngineType::SearxNG => String::new(),
         }
     }
 
@@ -62,7 +75,10 @@ impl SearchEngineType {
     pub fn plain_query_pattern(&self) -> String {
         match self {
             SearchEngineType::DuckDuckGo => DUCKDUCKGO_PLAIN_QUERY_PATTERN.to_string(),
-            SearchEngineType::GoogleSerper => String::new(),
+            SearchEngineType::GoogleSerper
+            | SearchEngineType::Tavily
+            | SearchEngineType::GoogleAi
+            | SearchEngineType::SearxNG => String::new(),
             other => other.browser_query_pattern(),
         }
     }
@@ -70,23 +86,63 @@ impl SearchEngineType {
     pub fn supports_api(&self) -> bool {
         matches!(
             self,
-            SearchEngineType::BraveSearch | SearchEngineType::GoogleSerper
+            SearchEngineType::BraveSearch
+                | SearchEngineType::GoogleSerper
+                | SearchEngineType::Tavily
+                | SearchEngineType::GoogleAi
+                | SearchEngineType::SearxNG
         )
     }
 
     pub fn supports_web(&self) -> bool {
-        !matches!(self, SearchEngineType::GoogleSerper)
+        !self.is_api_only()
     }
 
-    /// API-only engines require a key and have no web fallback under this engine id.
+    /// API-only engines have no HTML SERP / browser fallback under this engine id.
     pub fn is_api_only(&self) -> bool {
-        matches!(self, SearchEngineType::GoogleSerper)
+        matches!(
+            self,
+            SearchEngineType::GoogleSerper
+                | SearchEngineType::Tavily
+                | SearchEngineType::GoogleAi
+                | SearchEngineType::SearxNG
+        )
+    }
+
+    /// Whether this API engine authenticates with an API key (vs host URL).
+    pub fn requires_api_key(&self) -> bool {
+        matches!(
+            self,
+            SearchEngineType::BraveSearch
+                | SearchEngineType::GoogleSerper
+                | SearchEngineType::Tavily
+                | SearchEngineType::GoogleAi
+        )
+    }
+
+    /// Whether this engine needs a base host URL (SearxNG).
+    pub fn requires_base_url(&self) -> bool {
+        matches!(self, SearchEngineType::SearxNG)
+    }
+
+    pub fn missing_credentials_message(&self) -> String {
+        match self {
+            SearchEngineType::GoogleSerper => "google_serper requires SERPER_API_KEY".to_string(),
+            SearchEngineType::Tavily => "tavily requires TAVILY_API_KEY".to_string(),
+            SearchEngineType::GoogleAi => "googleai requires GEMINI_API_KEY".to_string(),
+            SearchEngineType::SearxNG => "searxng requires SEARX_HOST".to_string(),
+            SearchEngineType::BraveSearch => "brave requires BRAVE_API_KEY".to_string(),
+            other => format!("{other:?} requires credentials"),
+        }
     }
 
     pub fn api_query_pattern(&self) -> Option<&'static str> {
         match self {
             SearchEngineType::BraveSearch => Some(BRAVE_API_QUERY_PATTERN),
             SearchEngineType::GoogleSerper => Some(SERPER_API_URL),
+            SearchEngineType::Tavily => Some(TAVILY_API_URL),
+            SearchEngineType::GoogleAi => Some(GOOGLEAI_API_URL_PATTERN),
+            SearchEngineType::SearxNG => None,
             _ => None,
         }
     }
@@ -133,9 +189,10 @@ mod tests {
     use crate::constants::{
         BAIDU_QUERY_PATTERN, BING_QUERY_PATTERN, BRAVE_QUERY_PATTERN,
         DUCKDUCKGO_PLAIN_QUERY_PATTERN, DUCKDUCKGO_QUERY_PATTERN, GOOGLE_QUERY_PATTERN,
-        SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DUCKDUCKGO,
-        SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_SERPER_ALIAS,
-        SEARCH_ENGINE_SOUGOU_WEIXIN, SOUGOU_WEIXIN_QUERY_PATTERN,
+        SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DUCKDUCKGO, SEARCH_ENGINE_GOOGLE,
+        SEARCH_ENGINE_GOOGLE_AI_ALIAS, SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_GOOGLEAI,
+        SEARCH_ENGINE_SEARXNG, SEARCH_ENGINE_SERPER_ALIAS, SEARCH_ENGINE_SOUGOU_WEIXIN,
+        SEARCH_ENGINE_TAVILY, SOUGOU_WEIXIN_QUERY_PATTERN,
     };
 
     #[test]
@@ -157,10 +214,6 @@ mod tests {
             SearchEngineType::GoogleSerper
         );
         assert_eq!(
-            SearchEngineType::from_str(SEARCH_ENGINE_BING).unwrap(),
-            SearchEngineType::Bing
-        );
-        assert_eq!(
             SearchEngineType::from_str(SEARCH_ENGINE_BRAVE).unwrap(),
             SearchEngineType::BraveSearch
         );
@@ -171,6 +224,22 @@ mod tests {
         assert_eq!(
             SearchEngineType::from_str(SEARCH_ENGINE_SOUGOU_WEIXIN).unwrap(),
             SearchEngineType::SougouWeixin
+        );
+        assert_eq!(
+            SearchEngineType::from_str(SEARCH_ENGINE_TAVILY).unwrap(),
+            SearchEngineType::Tavily
+        );
+        assert_eq!(
+            SearchEngineType::from_str(SEARCH_ENGINE_GOOGLEAI).unwrap(),
+            SearchEngineType::GoogleAi
+        );
+        assert_eq!(
+            SearchEngineType::from_str(SEARCH_ENGINE_GOOGLE_AI_ALIAS).unwrap(),
+            SearchEngineType::GoogleAi
+        );
+        assert_eq!(
+            SearchEngineType::from_str(SEARCH_ENGINE_SEARXNG).unwrap(),
+            SearchEngineType::SearxNG
         );
 
         assert!(SearchEngineType::from_str("invalid").is_err());
@@ -232,10 +301,22 @@ mod tests {
                 .plain_query_pattern()
                 .is_empty()
         );
+        assert!(SearchEngineType::Tavily.browser_query_pattern().is_empty());
+        assert!(
+            SearchEngineType::GoogleAi
+                .browser_query_pattern()
+                .is_empty()
+        );
+        assert!(SearchEngineType::SearxNG.browser_query_pattern().is_empty());
         assert!(SearchEngineType::GoogleSerper.supports_api());
         assert!(!SearchEngineType::GoogleSerper.supports_web());
         assert!(SearchEngineType::GoogleSerper.is_api_only());
         assert!(!SearchEngineType::Google.supports_api());
+        assert!(SearchEngineType::Tavily.is_api_only());
+        assert!(SearchEngineType::GoogleAi.is_api_only());
+        assert!(SearchEngineType::SearxNG.is_api_only());
+        assert!(SearchEngineType::SearxNG.requires_base_url());
+        assert!(!SearchEngineType::Tavily.requires_base_url());
     }
 
     #[test]
@@ -248,17 +329,22 @@ mod tests {
             (SearchEngineType::BraveSearch, true, true, false),
             (SearchEngineType::Baidu, false, true, false),
             (SearchEngineType::SougouWeixin, false, true, false),
+            (SearchEngineType::Tavily, true, false, true),
+            (SearchEngineType::GoogleAi, true, false, true),
+            (SearchEngineType::SearxNG, true, false, true),
         ];
 
         for (engine, api, web, api_only) in cases {
             assert_eq!(engine.supports_api(), api, "{engine:?} supports_api");
             assert_eq!(engine.supports_web(), web, "{engine:?} supports_web");
             assert_eq!(engine.is_api_only(), api_only, "{engine:?} is_api_only");
-            assert_eq!(
-                engine.api_query_pattern().is_some(),
-                api,
-                "{engine:?} api_query_pattern"
-            );
+            if engine != SearchEngineType::SearxNG {
+                assert_eq!(
+                    engine.api_query_pattern().is_some(),
+                    api,
+                    "{engine:?} api_query_pattern"
+                );
+            }
             if web {
                 assert!(
                     !engine.browser_query_pattern().is_empty(),

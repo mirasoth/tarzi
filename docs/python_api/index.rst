@@ -43,7 +43,8 @@ Search Engines and Modes
 ``SearchEngine`` reads ``search.engine`` and ``search.mode`` from :class:`tarzi.Config`.
 
 Supported engines: ``bing``, ``google``, ``google_serper`` (alias ``serper``), ``brave``,
-``duckduckgo``, ``baidu``, ``sogou_weixin``.
+``duckduckgo``, ``baidu``, ``sogou_weixin``, ``tavily``, ``googleai`` (alias ``google_ai``),
+``searxng``.
 
 Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`.
 
@@ -74,6 +75,17 @@ Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("agentic AI", 5)
 
+   # Tavily API
+   config = tarzi.Config.from_str(
+       """
+   [search]
+   engine = "tavily"
+   mode = "apiquery"
+   """
+   )
+   engine = tarzi.SearchEngine.from_config(config)
+   results = engine.search("latest AI news", 5)
+
    # Web-only (never call APIs)
    config = tarzi.Config.from_str(
        """
@@ -85,6 +97,8 @@ Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("python packaging", 5)
 
-Environment keys ``BRAVE_API_KEY`` and ``SERPER_API_KEY`` override ``search.api_key``.
+Environment keys ``BRAVE_API_KEY``, ``SERPER_API_KEY``, ``TAVILY_API_KEY``, and
+``GEMINI_API_KEY`` override ``search.api_key``. ``SEARX_HOST`` overrides
+``search.base_url`` for ``searxng``.
 
 More examples: :doc:`/examples/api_search` and ``examples/search_modes.py``.

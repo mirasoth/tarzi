@@ -14,7 +14,7 @@ pub mod providers;
 pub mod types;
 
 // Re-export main types and functions
-pub use access::{resolve_access, resolve_api_key};
+pub use access::{has_api_credentials, resolve_access, resolve_api_key, resolve_base_url};
 pub use engine::SearchEngine;
 pub use parser::ParserFactory;
 pub use types::{AccessMethod, SearchEngineType, SearchMode, SearchResult};

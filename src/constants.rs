@@ -149,6 +149,10 @@ pub const SEARCH_ENGINE_SERPER_ALIAS: &str = "serper";
 pub const SEARCH_ENGINE_BRAVE: &str = "brave";
 pub const SEARCH_ENGINE_BAIDU: &str = "baidu";
 pub const SEARCH_ENGINE_SOUGOU_WEIXIN: &str = "sogou_weixin";
+pub const SEARCH_ENGINE_TAVILY: &str = "tavily";
+pub const SEARCH_ENGINE_GOOGLEAI: &str = "googleai";
+pub const SEARCH_ENGINE_GOOGLE_AI_ALIAS: &str = "google_ai";
+pub const SEARCH_ENGINE_SEARXNG: &str = "searxng";
 
 // Search modes
 pub const SEARCH_MODE_AUTO: &str = "auto";
@@ -158,9 +162,12 @@ pub const SEARCH_MODE_WEBQUERY: &str = "webquery";
 /// Default search mode
 pub const DEFAULT_SEARCH_MODE: &str = SEARCH_MODE_AUTO;
 
-// API key environment variable names
+// API key / host environment variable names
 pub const ENV_BRAVE_API_KEY: &str = "BRAVE_API_KEY";
 pub const ENV_SERPER_API_KEY: &str = "SERPER_API_KEY";
+pub const ENV_TAVILY_API_KEY: &str = "TAVILY_API_KEY";
+pub const ENV_GEMINI_API_KEY: &str = "GEMINI_API_KEY";
+pub const ENV_SEARX_HOST: &str = "SEARX_HOST";
 
 // Tarzi-specific configuration environment variable names
 pub const ENV_TARZI_LOG_LEVEL: &str = "TARZI_LOG_LEVEL";
@@ -198,6 +205,16 @@ pub const BRAVE_API_QUERY_PATTERN: &str =
 
 /// Serper Google search API endpoint
 pub const SERPER_API_URL: &str = "https://google.serper.dev/search";
+
+/// Tavily Search API endpoint
+pub const TAVILY_API_URL: &str = "https://api.tavily.com/search";
+
+/// Gemini generateContent endpoint pattern (`{model}` substituted at call time)
+pub const GOOGLEAI_API_URL_PATTERN: &str =
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+
+/// Default Gemini model for googleai grounded search
+pub const DEFAULT_GOOGLEAI_MODEL: &str = "gemini-2.0-flash";
 
 // ============================================================================
 // Default Values

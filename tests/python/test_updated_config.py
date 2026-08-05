@@ -95,6 +95,10 @@ engine = "duckduckgo"
             "serper",
             "baidu",
             "sogou_weixin",
+            "tavily",
+            "googleai",
+            "google_ai",
+            "searxng",
         ]
 
         for engine in engines:

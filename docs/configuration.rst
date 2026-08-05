@@ -166,7 +166,7 @@ Search Engines and Modes
    * - Engine id
      - Web Query
      - API Query
-     - API Key
+     - API Key / Host
    * - ``bing``
      - Yes
      - No
@@ -195,8 +195,21 @@ Search Engines and Modes
      - Yes
      - No
      - N/A
+   * - ``tavily``
+     - No
+     - Yes
+     - Yes (``TAVILY_API_KEY``)
+   * - ``googleai`` / ``google_ai``
+     - No
+     - Yes
+     - Yes (``GEMINI_API_KEY``)
+   * - ``searxng``
+     - No
+     - Yes
+     - Host (``SEARX_HOST`` or ``search.base_url``)
 
 ``google`` is HTML webquery only. Google API results go through ``google_serper`` (no CSE).
+``tavily``, ``googleai``, and ``searxng`` are API-only (no HTML SERP fallback).
 
 **Configuration examples:**
 
@@ -215,6 +228,27 @@ Search Engines and Modes
    export TARZI_SEARCH_MODE=apiquery
    export TARZI_SEARCH_LIMIT=10
    export SERPER_API_KEY=your-serper-api-key
+
+.. code-block:: bash
+
+   # Tavily API
+   export TARZI_SEARCH_ENGINE=tavily
+   export TARZI_SEARCH_MODE=apiquery
+   export TAVILY_API_KEY=your-tavily-api-key
+
+.. code-block:: bash
+
+   # Gemini grounded search
+   export TARZI_SEARCH_ENGINE=googleai
+   export TARZI_SEARCH_MODE=apiquery
+   export GEMINI_API_KEY=your-gemini-api-key
+
+.. code-block:: bash
+
+   # Self-hosted SearxNG
+   export TARZI_SEARCH_ENGINE=searxng
+   export TARZI_SEARCH_MODE=apiquery
+   export SEARX_HOST=http://localhost:8080
 
 .. code-block:: bash
 

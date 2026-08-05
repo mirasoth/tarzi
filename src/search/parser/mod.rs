@@ -10,7 +10,10 @@ pub mod brave;
 pub mod duckduckgo;
 pub mod google;
 pub mod google_serper;
+pub mod googleai;
+pub mod searxng;
 pub mod sogou_weixin;
+pub mod tavily;
 
 use crate::search::types::SearchEngineType;
 
@@ -22,7 +25,10 @@ pub use brave::BraveParser;
 pub use duckduckgo::DuckDuckGoParser;
 pub use google::GoogleParser;
 pub use google_serper::GoogleSerperParser;
+pub use googleai::GoogleAiParser;
+pub use searxng::SearxNGParser;
 pub use sogou_weixin::SogouWeixinParser;
+pub use tavily::TavilyParser;
 
 /// Factory for creating parsers based on search engine type
 pub struct ParserFactory;
@@ -39,10 +45,14 @@ impl ParserFactory {
             SearchEngineType::Bing => Box::new(BingParser::new()),
             SearchEngineType::DuckDuckGo => Box::new(DuckDuckGoParser::new()),
             SearchEngineType::Google => Box::new(GoogleParser::new()),
-            SearchEngineType::GoogleSerper => Box::new(GoogleSerperParser::new()),
             SearchEngineType::BraveSearch => Box::new(BraveParser::new()),
             SearchEngineType::Baidu => Box::new(BaiduParser::new()),
             SearchEngineType::SougouWeixin => Box::new(SogouWeixinParser::new()),
+            // API JSON parsers
+            SearchEngineType::GoogleSerper => Box::new(GoogleSerperParser::new()),
+            SearchEngineType::Tavily => Box::new(TavilyParser::new()),
+            SearchEngineType::GoogleAi => Box::new(GoogleAiParser::new()),
+            SearchEngineType::SearxNG => Box::new(SearxNGParser::new()),
         }
     }
 }
@@ -69,6 +79,9 @@ mod tests {
             (SearchEngineType::BraveSearch, "BraveParser"),
             (SearchEngineType::Baidu, "BaiduParser"),
             (SearchEngineType::SougouWeixin, "SogouWeixinParser"),
+            (SearchEngineType::Tavily, "TavilyParser"),
+            (SearchEngineType::GoogleAi, "GoogleAiParser"),
+            (SearchEngineType::SearxNG, "SearxNGParser"),
         ];
 
         for (engine_type, name) in expected {
@@ -118,7 +131,10 @@ mod tests {
                     || parser.supports(&SearchEngineType::GoogleSerper)
                     || parser.supports(&SearchEngineType::BraveSearch)
                     || parser.supports(&SearchEngineType::Baidu)
-                    || parser.supports(&SearchEngineType::SougouWeixin),
+                    || parser.supports(&SearchEngineType::SougouWeixin)
+                    || parser.supports(&SearchEngineType::Tavily)
+                    || parser.supports(&SearchEngineType::GoogleAi)
+                    || parser.supports(&SearchEngineType::SearxNG),
                 "Parser {name} should support at least one engine type"
             );
         }

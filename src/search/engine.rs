@@ -1,5 +1,7 @@
-use super::access::{resolve_access, resolve_api_key};
-use super::api::{search_brave_api, search_serper_api};
+use super::access::{has_api_credentials, resolve_access, resolve_api_key, resolve_base_url};
+use super::api::{
+    search_brave_api, search_googleai_api, search_searxng_api, search_serper_api, search_tavily_api,
+};
 use super::parser::ParserFactory;
 use super::types::{AccessMethod, SearchEngineType, SearchMode, SearchResult};
 use crate::config::Config;
@@ -22,6 +24,7 @@ pub struct SearchEngine {
     fetch_mode: FetchMode,
     search_mode: SearchMode,
     api_key: Option<String>,
+    base_url: Option<String>,
 }
 
 impl SearchEngine {
@@ -35,6 +38,7 @@ impl SearchEngine {
             fetch_mode: FetchMode::BrowserHeadless,
             search_mode: SearchMode::Auto,
             api_key: None,
+            base_url: None,
         }
     }
 
@@ -74,6 +78,7 @@ impl SearchEngine {
         });
 
         let api_key = resolve_api_key(engine_type, &config.search.api_key);
+        let base_url = resolve_base_url(engine_type, &config.search.base_url);
 
         Self {
             fetcher,
@@ -84,12 +89,13 @@ impl SearchEngine {
             fetch_mode,
             search_mode,
             api_key,
+            base_url,
         }
     }
 
     pub async fn search(&mut self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
-        let has_api_key = self.api_key.is_some();
-        let methods = resolve_access(self.engine_type, self.search_mode, has_api_key)?;
+        let has_credentials = has_api_credentials(self.engine_type, &self.api_key, &self.base_url);
+        let methods = resolve_access(self.engine_type, self.search_mode, has_credentials)?;
 
         let allow_fallback = matches!(self.search_mode, SearchMode::Auto | SearchMode::WebQuery);
         let mut last_error: Option<TarziError> = None;
@@ -155,21 +161,36 @@ impl SearchEngine {
     }
 
     async fn search_via_api(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
-        let api_key = self
-            .api_key
-            .as_deref()
-            .ok_or_else(|| TarziError::Search("API key is required for apiquery".to_string()))?;
-
         match self.engine_type {
-            SearchEngineType::BraveSearch => {
-                search_brave_api(&self.fetcher, query, limit, api_key).await
+            SearchEngineType::SearxNG => {
+                let host = self.base_url.as_deref().ok_or_else(|| {
+                    TarziError::Search(SearchEngineType::SearxNG.missing_credentials_message())
+                })?;
+                search_searxng_api(&self.fetcher, query, limit, host).await
             }
-            SearchEngineType::GoogleSerper => {
-                search_serper_api(&self.fetcher, query, limit, api_key).await
+            engine => {
+                let api_key = self
+                    .api_key
+                    .as_deref()
+                    .ok_or_else(|| TarziError::Search(engine.missing_credentials_message()))?;
+                match engine {
+                    SearchEngineType::BraveSearch => {
+                        search_brave_api(&self.fetcher, query, limit, api_key).await
+                    }
+                    SearchEngineType::GoogleSerper => {
+                        search_serper_api(&self.fetcher, query, limit, api_key).await
+                    }
+                    SearchEngineType::Tavily => {
+                        search_tavily_api(&self.fetcher, query, limit, api_key).await
+                    }
+                    SearchEngineType::GoogleAi => {
+                        search_googleai_api(&self.fetcher, query, limit, api_key).await
+                    }
+                    other => Err(TarziError::Search(format!(
+                        "Engine {other:?} does not support API access"
+                    ))),
+                }
             }
-            other => Err(TarziError::Search(format!(
-                "Engine {other:?} does not support API access"
-            ))),
         }
     }
 

@@ -8,8 +8,9 @@ use tarzi::config::Config;
 use tarzi::constants::{
     ENV_BRAVE_API_KEY, ENV_SERPER_API_KEY, SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING,
     SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DUCKDUCKGO, SEARCH_ENGINE_GOOGLE,
-    SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_MODE_APIQUERY,
-    SEARCH_MODE_AUTO, SEARCH_MODE_WEBQUERY,
+    SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_GOOGLEAI, SEARCH_ENGINE_SEARXNG,
+    SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_ENGINE_TAVILY, SEARCH_MODE_APIQUERY, SEARCH_MODE_AUTO,
+    SEARCH_MODE_WEBQUERY,
 };
 use tarzi::search::SearchEngine;
 use tarzi::search::types::{SearchEngineType, SearchMode};
@@ -223,6 +224,9 @@ async fn test_engine_mode_config_wiring_all_combinations() {
         SEARCH_ENGINE_BRAVE,
         SEARCH_ENGINE_BAIDU,
         SEARCH_ENGINE_SOUGOU_WEIXIN,
+        SEARCH_ENGINE_TAVILY,
+        SEARCH_ENGINE_GOOGLEAI,
+        SEARCH_ENGINE_SEARXNG,
     ];
     let modes = [SEARCH_MODE_AUTO, SEARCH_MODE_APIQUERY, SEARCH_MODE_WEBQUERY];
 
@@ -230,6 +234,7 @@ async fn test_engine_mode_config_wiring_all_combinations() {
         for mode_name in modes {
             let mut config = make_config(engine_name, mode_name);
             config.search.api_key = Some("integration-test-placeholder".to_string());
+            config.search.base_url = Some("http://localhost:8080".to_string());
             let engine = SearchEngine::from_config(&config);
             assert_eq!(
                 engine.engine_type(),

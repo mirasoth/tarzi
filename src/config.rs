@@ -55,8 +55,12 @@ pub struct SearchConfig {
     #[serde(default = "default_search_mode")]
     pub mode: String,
     /// Optional API key for the configured engine (programmatic only).
-    /// Prefer engine-specific env vars: `BRAVE_API_KEY`, `SERPER_API_KEY`.
+    /// Prefer engine-specific env vars: `BRAVE_API_KEY`, `SERPER_API_KEY`,
+    /// `TAVILY_API_KEY`, `GEMINI_API_KEY`.
     pub api_key: Option<String>,
+    /// Optional base URL / host for engines that need one (SearxNG).
+    /// Prefer `SEARX_HOST` env var at use time.
+    pub base_url: Option<String>,
 }
 
 /// CLI configuration parameters that can override config values
@@ -216,6 +220,9 @@ impl Config {
         if other.search.api_key.is_some() {
             self.search.api_key = other.search.api_key.clone();
         }
+        if other.search.base_url.is_some() {
+            self.search.base_url = other.search.base_url.clone();
+        }
     }
 
     /// Apply CLI parameters to config (highest priority)
@@ -288,6 +295,7 @@ impl Default for SearchConfig {
             limit: default_result_limit(),
             mode: default_search_mode(),
             api_key: None,
+            base_url: None,
         }
     }
 }
@@ -820,6 +828,7 @@ web_driver_url = "http://localhost:9999"
                 limit: DEFAULT_SEARCH_LIMIT,
                 mode: DEFAULT_SEARCH_MODE.to_string(),
                 api_key: None,
+                base_url: None,
             },
         };
 

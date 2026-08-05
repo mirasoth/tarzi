@@ -14,12 +14,17 @@ ALL_ENGINES = [
     "brave",
     "baidu",
     "sogou_weixin",
+    "tavily",
+    "googleai",
+    "google_ai",
+    "searxng",
 ]
 
 ALL_MODES = ["auto", "apiquery", "webquery"]
 
 WEB_ONLY_ENGINES = ["bing", "duckduckgo", "google", "baidu", "sogou_weixin"]
-API_ENGINES = ["brave", "google_serper"]
+API_ENGINES = ["brave", "google_serper", "tavily", "googleai", "searxng"]
+API_ONLY_ENGINES = ["google_serper", "tavily", "googleai", "searxng"]
 
 
 @pytest.mark.unit
@@ -116,4 +121,60 @@ mode = "auto"
         search = tarzi.SearchEngine.from_config(config)
         with pytest.raises(Exception, match="(?i)serper|api key"):
             search.search("rust", 1)
+        search.shutdown()
+
+    def test_tavily_without_key_fails(self, monkeypatch):
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        config = tarzi.Config.from_str(
+            """
+[search]
+engine = "tavily"
+mode = "auto"
+"""
+        )
+        search = tarzi.SearchEngine.from_config(config)
+        with pytest.raises(Exception, match="(?i)tavily|api key"):
+            search.search("rust", 1)
+        search.shutdown()
+
+    def test_googleai_webquery_rejected(self):
+        config = tarzi.Config.from_str(
+            """
+[search]
+engine = "googleai"
+mode = "webquery"
+api_key = "unused"
+"""
+        )
+        search = tarzi.SearchEngine.from_config(config)
+        with pytest.raises(Exception, match="(?i)webquery|apiquery|only supports"):
+            search.search("rust", 1)
+        search.shutdown()
+
+    def test_searxng_without_host_fails(self, monkeypatch):
+        monkeypatch.delenv("SEARX_HOST", raising=False)
+        config = tarzi.Config.from_str(
+            """
+[search]
+engine = "searxng"
+mode = "apiquery"
+"""
+        )
+        search = tarzi.SearchEngine.from_config(config)
+        with pytest.raises(Exception, match="(?i)searx|host"):
+            search.search("rust", 1)
+        search.shutdown()
+
+    def test_searxng_base_url_in_config(self, monkeypatch):
+        monkeypatch.delenv("SEARX_HOST", raising=False)
+        config = tarzi.Config.from_str(
+            """
+[search]
+engine = "searxng"
+mode = "apiquery"
+base_url = "http://localhost:8080"
+"""
+        )
+        search = tarzi.SearchEngine.from_config(config)
+        assert isinstance(search, tarzi.SearchEngine)
         search.shutdown()
