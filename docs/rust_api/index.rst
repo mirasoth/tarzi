@@ -23,7 +23,7 @@ Quick Reference
 **Enums**
    - ``Format`` - Output formats (Markdown, JSON, YAML, HTML)
    - ``FetchMode`` - Fetching strategies
-   - ``SearchMode`` - Search access modes (Auto, ApiQuery, WebQuery)
+   - ``AccessMethod`` - Search access methods (Api, PlainHttp, Browser)
    - ``AccessMethod`` - Resolved access path (Api, PlainHttp, Browser)
    - ``SearchEngineType`` - Supported search engines
      (Bing, DuckDuckGo, Google, GoogleSerper, BraveSearch, Baidu, SougouWeixin)
@@ -50,7 +50,7 @@ Basic Usage
            Format::Markdown
        ).await?;
 
-       // Search web (auto cascade from config / defaults)
+       // Search web (cascade from config / defaults)
        let mut search_engine = SearchEngine::new();
        let results = search_engine.search("agentic AI", 10).await?;
 
@@ -63,11 +63,10 @@ Basic Usage
        Ok(())
    }
 
-Search Engines and Modes
-------------------------
+Search Engines and Access Cascade
+---------------------------------
 
-Configure ``Config.search.engine`` and ``Config.search.mode``
-(``auto`` | ``apiquery`` | ``webquery``). Defaults: Bing + ``auto``.
+Configure ``Config.search.engine`` (comma-separated failover OK) and ``Config.search.browser`` (default true). Defaults: Bing + browser enabled.
 
 .. code-block:: rust
 
@@ -78,19 +77,19 @@ Configure ``Config.search.engine`` and ``Config.search.mode``
        // Brave: API when BRAVE_API_KEY is set, else web cascade
        let mut config = Config::new();
        config.search.engine = "brave".to_string();
-       config.search.mode = "auto".to_string();
+       config.search.browser = true;
        let mut engine = SearchEngine::from_config(&config);
        let _ = engine.search("rust ownership", 5).await?;
 
        // Google via Serper (API-only)
        config.search.engine = "google_serper".to_string();
-       config.search.mode = "apiquery".to_string();
+       config.search.browser = false;
        let mut serper = SearchEngine::from_config(&config);
        let _ = serper.search("tokio runtime", 5).await?;
 
-       // Force web path
+       // DuckDuckGo with browser fallback enabled
        config.search.engine = "duckduckgo".to_string();
-       config.search.mode = "webquery".to_string();
+       config.search.browser = true;
        let mut web = SearchEngine::from_config(&config);
        let _ = web.search("cargo workspace", 5).await?;
 

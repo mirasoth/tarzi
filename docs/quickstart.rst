@@ -51,7 +51,7 @@ Let's start with a simple example that demonstrates the core functionality:
    # 4. Search via Brave API when BRAVE_API_KEY / search.api_key is set
    try:
        config = tarzi.Config.from_str(
-           "[search]\nengine = \"brave\"\nmode = \"auto\"\nlimit = 3\n"
+           "[search]\nengine = \"brave\"\nbrowser = true\nlimit = 3\n"
        )
        engine = tarzi.SearchEngine.from_config(config)
        results = engine.search("machine learning trends", 3)
@@ -98,7 +98,7 @@ Here's the equivalent Rust program:
            Err(e) => println!("Fetch failed: {}", e),
        }
 
-       // 3. Search the web (auto cascade: API → plain HTTP → browser)
+       // 3. Search the web (API → plain HTTP → browser)
        let mut search_engine = SearchEngine::new();
        match search_engine.search("agentic AI", 3).await {
            Ok(results) => {
@@ -115,7 +115,7 @@ Here's the equivalent Rust program:
        // 4. Prefer Brave API when a key is configured
        let mut config = Config::new();
        config.search.engine = "brave".to_string();
-       config.search.mode = "auto".to_string();
+       config.search.browser = true;
        let mut api_search_engine = SearchEngine::from_config(&config);
        match api_search_engine.search("machine learning trends", 3).await {
            Ok(results) => {
@@ -201,14 +201,14 @@ Different modes for fetching web content:
        mode="browser_headless"
    )
 
-Search Modes
-~~~~~~~~~~~~
+Search Access Cascade
+~~~~~~~~~~~~~~~~~~~~~
 
-Configure access via ``search.mode`` in TOML (default ``auto``):
+Access cascade is always on:
 
-- **auto**: API (if key present) → plain HTTP → headless browser
-- **apiquery**: API only (Brave / Google Serper)
-- **webquery**: plain HTTP then browser (never uses API)
+- **API**: when credentials are present
+- **plain HTTP**: public SERP URL
+- **browser**: when ``search.browser`` / ``TARZI_SEARCH_BROWSER`` is true (default)
 
 Supported engines: ``bing`` (default), ``google``, ``google_serper`` (alias ``serper``),
 ``brave``, ``duckduckgo``, ``baidu``, ``sogou_weixin``.
@@ -221,19 +221,19 @@ API Search Providers
 
 .. code-block:: python
 
-   # Uses configured cascade (default auto)
+   # Uses configured cascade
    results = tarzi.search_web("machine learning", limit=10)
 
-   # Force Serper API via config
+   # Serper API via config
    config = tarzi.Config.from_str(
-       "[search]\nengine = \"google_serper\"\nmode = \"apiquery\"\n"
+       "[search]\nengine = \"google_serper\"\nbrowser = false\n"
    )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("artificial intelligence", 10)
 
-   # Web-only path (skip APIs)
+   # Multi-engine failover without browser
    config = tarzi.Config.from_str(
-       "[search]\nengine = \"brave\"\nmode = \"webquery\"\n"
+       "[search]\nengine = \"brave,duckduckgo\"\nbrowser = false\n"
    )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("rust async", 5)
@@ -247,7 +247,7 @@ Configure with environment variables (see ``.env.example``):
 .. code-block:: bash
 
    export TARZI_SEARCH_ENGINE=brave
-   export TARZI_SEARCH_MODE=auto
+   export TARZI_SEARCH_BROWSER=true
    export TARZI_SEARCH_LIMIT=5
    export TARZI_USER_AGENT="Mozilla/5.0 (compatible; Tarzi/1.0)"
    export TARZI_FETCHER_TIMEOUT=30

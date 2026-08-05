@@ -72,27 +72,22 @@ Both CLIs support the same commands and configuration precedence.
 ## Usage Examples
 
 * Examples in Python and Rust: [examples](/examples/)
-* Search modes demo: `cargo run --example search_modes` / `python examples/search_modes.py`
+* Search cascade demo: `cargo run --example search_cascade` / `python examples/search_cascade.py`
 * Serper (Google API): set `SERPER_API_KEY`, then `cargo run --example search_engine_serper`
 
-### Search access modes
+### Search configuration
 
 **Breaking change:** `tarzi.toml` / `~/.tarzi.toml` are removed. Configure with env vars (see [.env.example](.env.example)):
 
 ```bash
-export TARZI_SEARCH_ENGINE=brave   # bing | google | google_serper | brave | duckduckgo | ...
-export TARZI_SEARCH_MODE=auto      # auto | apiquery | webquery
+export TARZI_SEARCH_ENGINE=brave           # or ordered list: brave,duckduckgo,bing
+export TARZI_SEARCH_BROWSER=true           # false disables browser fallback (default true)
 # Engine API keys (tarzi has no product API key):
-export BRAVE_API_KEY=...           # or SERPER_API_KEY for google_serper
+export BRAVE_API_KEY=...                   # or SERPER_API_KEY for google_serper
 ```
 
-| Mode | Behavior |
-|------|----------|
-| `auto` (default) | API (if key) → plain HTTP → headless browser |
-| `apiquery` | API only (Brave / `google_serper`) |
-| `webquery` | Plain HTTP → browser (never API) |
-
-`google` is web-only; Google API results use `google_serper` (alias `serper`).
+Access cascade (always): **API** (if credentials present) → **plain HTTP** → **browser** (if enabled).
+API-only engines without keys are skipped before any network call. `google` is web-only; Google API results use `google_serper` (alias `serper`).
 
 ## Alternatives
 

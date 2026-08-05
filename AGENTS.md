@@ -115,17 +115,19 @@ The project uses a comprehensive multi-layer testing approach:
 
 Here is the definition and logics about search engines:
 
-- Each engine provider can serve either webquery or apiquery, or both.
-- The webquery mode always requires no api-key.
-- The apiquery mode of some engines may require api-key.
-- Access priority in `search.mode = "auto"`: API key (if available) → plain HTTP domain+query → headless browser.
+- Each engine provider can serve either web query or API query, or both.
+- The web query path always requires no API key.
+- The API path of some engines may require an API key (probed from env before any request).
+- Access cascade (always): API (if available) → plain HTTP → headless browser (if `search.browser` / `TARZI_SEARCH_BROWSER` is true, default true).
+- `TARZI_SEARCH_ENGINE` accepts a single engine or a comma-separated ordered failover list (e.g. `brave,duckduckgo,bing`).
+- API-only engines without credentials are skipped (multi-engine) or error (single engine) without hitting the network.
 
 ### Known Engine List
 
 | Engine         | Web Query | API Query | API Key Required | Notes |
 |----------------|-----------|-----------|------------------|-------|
 | Bing           | Yes       | No        | N/A              | Bing Search API retired |
-| Google         | Yes       | No        | N/A              | HTML webquery only |
+| Google         | Yes       | No        | N/A              | HTML web query only |
 | Google Serper  | No        | Yes       | Yes (`SERPER_API_KEY`) | Engine id: `google_serper` (alias `serper`) |
 | Brave          | Yes       | Yes       | Yes for API (`BRAVE_API_KEY`) | API preferred when key present |
 | DuckDuckGo     | Yes       | No        | N/A              | Plain HTML endpoint preferred before browser |
@@ -135,9 +137,9 @@ Here is the definition and logics about search engines:
 ### Engine Implementation Guidelines
 
 - Engine `google` and `google_serper` are different search providers.
-- Each engine has specific query pattern, and webquery and apiquery modes always have different query patterns.
-- Each engine should have specific parser for webquery and apiquery modes.
-- Each engine should have different implementation about search functionalities in webquery or apiquery mode.
+- Each engine has specific query pattern, and web and API paths always have different query patterns.
+- Each engine should have specific parser for web and API paths.
+- Each engine should have different implementation about search functionalities in web or API path.
 - Do not use Google Custom Search (CSE); Google API results go through `google_serper` only.
 
 ## Current System Status

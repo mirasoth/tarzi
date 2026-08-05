@@ -71,17 +71,17 @@ print(content)
 ```python
 import tarzi
 
-# Default: bing + mode=auto (API → plain HTTP → browser when supported)
+# Default: bing + cascade (API → plain HTTP → browser when supported)
 engine = tarzi.SearchEngine()
 results = engine.search('python programming', 5)
 for result in results:
     print(f"{result.title}: {result.url}")
 
-# Configure engine + access mode
+# Configure engine + browser toggle
 config = tarzi.Config.from_str("""
 [search]
 engine = "brave"
-mode = "auto"
+browser = true
 limit = 5
 """)
 engine = tarzi.SearchEngine.from_config(config)
@@ -91,7 +91,7 @@ results = engine.search('rust async', 5)
 config = tarzi.Config.from_str("""
 [search]
 engine = "google_serper"
-mode = "apiquery"
+browser = false
 """)
 engine = tarzi.SearchEngine.from_config(config)
 ```
@@ -124,10 +124,10 @@ engine = tarzi.SearchEngine.from_config(config)
 ### Search Engines
 - `bing`, `google`, `google_serper` (alias `serper`), `brave`, `duckduckgo`, `baidu`, `sogou_weixin`
 
-### Search Access Modes (`search.mode`)
-- `auto` (default) - API (if key) → plain HTTP → headless browser
-- `apiquery` - API only (Brave / Google Serper)
-- `webquery` - Plain HTTP → browser (never API)
+### Search Access Cascade
+- Always: API (if credentials) → plain HTTP → browser (if `search.browser`, default true)
+- Multi-engine: comma-separated `TARZI_SEARCH_ENGINE` ordered failover
+- API-only engines without keys are skipped before any network call
 
 Env keys: `BRAVE_API_KEY`, `SERPER_API_KEY` (engine-specific; there is no `TARZI_API_KEY`).
 File config (`tarzi.toml`) was removed — use `Config.load()` / env vars / `Config.from_str`.

@@ -57,7 +57,7 @@ Key Features
 
 🚀 **API Search Providers**
    Brave Search API and Google Serper (``BRAVE_API_KEY`` / ``SERPER_API_KEY``);
-   modes: ``auto`` | ``apiquery`` | ``webquery``
+   cascade: API → plain HTTP → browser; ``TARZI_SEARCH_BROWSER``; multi-engine failover
 
 🔒 **Proxy Support**
    Use proxies for plain HTTP and API paths (browser proxy is limited)
@@ -85,12 +85,12 @@ Python
    # Fetch web page
    content = tarzi.fetch_url("https://example.com", mode="browser_headless")
 
-   # Search web (auto: API → plain HTTP → browser)
+   # Search web (API → plain HTTP → browser)
    results = tarzi.search_web("python programming", 10)
 
    # Prefer Serper / Brave via config + env keys
    config = tarzi.Config.from_str(
-       "[search]\nengine = \"google_serper\"\nmode = \"auto\"\n"
+       "[search]\nengine = \"google_serper\"\nbrowser = true\n"
    )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("machine learning", 10)
@@ -120,14 +120,14 @@ Rust
            Format::Markdown
        ).await?;
 
-       // Search web (auto cascade)
+       // Search web (API → plain HTTP → browser)
        let mut search_engine = SearchEngine::new();
        let results = search_engine.search("agentic AI", 5).await?;
 
-       // Prefer API when configured
+       // Prefer API when credentials are configured
        let mut config = Config::new();
        config.search.engine = "brave".to_string();
-       config.search.mode = "auto".to_string();
+       config.search.browser = true;
        let mut api_search_engine = SearchEngine::from_config(&config);
        let api_results = api_search_engine.search("machine learning", 5).await?;
 

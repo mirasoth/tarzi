@@ -39,7 +39,7 @@ Tarzi has **no** product API key; use engine keys only (``BRAVE_API_KEY``, ``SER
 
    # Tarzi settings
    export TARZI_SEARCH_ENGINE=brave
-   export TARZI_SEARCH_MODE=auto
+   export TARZI_SEARCH_BROWSER=true
    export TARZI_SEARCH_LIMIT=10
    export TARZI_FETCHER_MODE=browser_headless
    export TARZI_FETCHER_FORMAT=markdown
@@ -65,13 +65,15 @@ Migrating from ``tarzi.toml``
    * - Old (file)
      - New (environment)
    * - ``[search] engine``
-     - ``TARZI_SEARCH_ENGINE``
-   * - ``[search] mode``
-     - ``TARZI_SEARCH_MODE``
+     - ``TARZI_SEARCH_ENGINE`` (comma-separated list supported)
+   * - ``[search] browser``
+     - ``TARZI_SEARCH_BROWSER``
    * - ``[search] limit``
      - ``TARZI_SEARCH_LIMIT``
    * - ``[search] query_pattern``
      - ``TARZI_QUERY_PATTERN``
+   * - ``[search] mode`` (removed)
+     - N/A — cascade is always on; use ``TARZI_SEARCH_BROWSER``
    * - ``[search] api_key``
      - ``BRAVE_API_KEY`` / ``SERPER_API_KEY``
    * - ``[fetcher] mode``
@@ -116,7 +118,7 @@ Python
 
    [search]
    engine = "brave"
-   mode = "auto"
+   browser = true
    limit = 5
    """
    config = tarzi.Config.from_str(config_str)
@@ -139,23 +141,29 @@ Rust
    let mut config = Config::default();
    config.fetcher.timeout = 60;
    config.search.engine = "brave".to_string();
-   config.search.mode = "auto".to_string();
+   config.search.browser = true;
 
    // Use with components
    let fetcher = WebFetcher::from_config(&config);
    let search_engine = SearchEngine::from_config(&config);
 
-Search Engines and Modes
-------------------------
+Search Engines and Access Cascade
+---------------------------------
 
-``search.engine`` / ``TARZI_SEARCH_ENGINE`` selects the provider.
-``search.mode`` / ``TARZI_SEARCH_MODE`` controls how tarzi reaches it.
+``search.engine`` / ``TARZI_SEARCH_ENGINE`` selects the provider, or a
+comma-separated **ordered failover list** (e.g. ``brave,duckduckgo,bing``).
 
-**Access modes** (default ``auto``):
+``search.browser`` / ``TARZI_SEARCH_BROWSER`` (default ``true``) controls whether
+browser automation may be used as the last search access step.
 
-- **auto** — API (if supported and a key is available) → plain HTTP → headless browser
-- **apiquery** — API only (errors if the engine has no API or the key is missing)
-- **webquery** — plain HTTP then browser (never uses API)
+**Access cascade** (always):
+
+1. **API** — if the engine supports it and credentials are present (env probed first; no request if missing)
+2. **Plain HTTP** — public SERP URL
+3. **Browser** — only when ``search.browser`` is true
+
+API-only engines without credentials are skipped in a multi-engine list (or error
+when they are the only engine).
 
 **Supported engines:**
 
@@ -208,7 +216,7 @@ Search Engines and Modes
      - Yes
      - Host (``SEARX_HOST`` or ``search.base_url``)
 
-``google`` is HTML webquery only. Google API results go through ``google_serper`` (no CSE).
+``google`` is HTML web query only. Google API results go through ``google_serper`` (no CSE).
 ``tavily``, ``googleai``, and ``searxng`` are API-only (no HTML SERP fallback).
 
 **Configuration examples:**
@@ -217,42 +225,43 @@ Search Engines and Modes
 
    # Brave with cascade (API when BRAVE_API_KEY is set)
    export TARZI_SEARCH_ENGINE=brave
-   export TARZI_SEARCH_MODE=auto
+   export TARZI_SEARCH_BROWSER=true
    export TARZI_SEARCH_LIMIT=10
    export BRAVE_API_KEY=your-brave-api-key
 
 .. code-block:: bash
 
-   # Force Serper API only
+   # Serper API (skipped automatically if SERPER_API_KEY is unset in a multi-engine list)
    export TARZI_SEARCH_ENGINE=google_serper
-   export TARZI_SEARCH_MODE=apiquery
-   export TARZI_SEARCH_LIMIT=10
    export SERPER_API_KEY=your-serper-api-key
+
+.. code-block:: bash
+
+   # Ordered multi-engine failover (API-only engines without keys are skipped)
+   export TARZI_SEARCH_ENGINE=google_serper,brave,duckduckgo,bing
+   export TARZI_SEARCH_BROWSER=false
 
 .. code-block:: bash
 
    # Tavily API
    export TARZI_SEARCH_ENGINE=tavily
-   export TARZI_SEARCH_MODE=apiquery
    export TAVILY_API_KEY=your-tavily-api-key
 
 .. code-block:: bash
 
    # Gemini grounded search
    export TARZI_SEARCH_ENGINE=googleai
-   export TARZI_SEARCH_MODE=apiquery
    export GEMINI_API_KEY=your-gemini-api-key
 
 .. code-block:: bash
 
    # Self-hosted SearxNG
    export TARZI_SEARCH_ENGINE=searxng
-   export TARZI_SEARCH_MODE=apiquery
    export SEARX_HOST=http://localhost:8080
 
 .. code-block:: bash
 
-   # Web-only path (never call APIs)
+   # Web engines without browser fallback (plain HTTP only)
    export TARZI_SEARCH_ENGINE=duckduckgo
-   export TARZI_SEARCH_MODE=webquery
+   export TARZI_SEARCH_BROWSER=false
    export TARZI_SEARCH_LIMIT=5

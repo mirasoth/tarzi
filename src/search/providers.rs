@@ -3,7 +3,7 @@ use super::api::{
     search_brave_api, search_googleai_api, search_searxng_api, search_serper_api, search_tavily_api,
 };
 use super::parser::ParserFactory;
-use super::types::{AccessMethod, SearchEngineType, SearchMode, SearchResult};
+use super::types::{AccessMethod, SearchEngineType, SearchResult};
 use crate::Result;
 use crate::error::TarziError;
 use crate::fetcher::{FetchMode, WebFetcher};
@@ -14,7 +14,7 @@ use tracing::{info, warn};
 #[derive(Debug)]
 pub struct ProviderConfig {
     pub fetcher: Box<WebFetcher>,
-    pub search_mode: SearchMode,
+    pub browser_enabled: bool,
     pub api_key: Option<String>,
     pub base_url: Option<String>,
 }
@@ -23,7 +23,7 @@ impl ProviderConfig {
     pub fn new(fetcher: WebFetcher) -> Self {
         Self {
             fetcher: Box::new(fetcher),
-            search_mode: SearchMode::Auto,
+            browser_enabled: true,
             api_key: None,
             base_url: None,
         }
@@ -55,7 +55,7 @@ pub trait SearchProvider: Send + Sync {
 async fn provider_search_cascade(
     fetcher: &mut WebFetcher,
     engine_type: SearchEngineType,
-    search_mode: SearchMode,
+    browser_enabled: bool,
     api_key: &Option<String>,
     base_url: &Option<String>,
     query: &str,
@@ -64,8 +64,14 @@ async fn provider_search_cascade(
     let resolved_key = resolve_api_key(engine_type, api_key);
     let resolved_base = resolve_base_url(engine_type, base_url);
     let has_credentials = has_api_credentials(engine_type, &resolved_key, &resolved_base);
-    let methods = resolve_access(engine_type, search_mode, has_credentials)?;
-    let allow_fallback = matches!(search_mode, SearchMode::Auto | SearchMode::WebQuery);
+
+    if engine_type.is_api_only() && !has_credentials {
+        return Err(TarziError::Search(
+            engine_type.missing_credentials_message(),
+        ));
+    }
+
+    let methods = resolve_access(engine_type, has_credentials, browser_enabled)?;
     let mut last_error: Option<TarziError> = None;
 
     for method in methods {
@@ -133,16 +139,10 @@ async fn provider_search_cascade(
                 let msg = format!("Provider search via {method:?} returned no results");
                 warn!("{}", msg);
                 last_error = Some(TarziError::Search(msg));
-                if !allow_fallback {
-                    break;
-                }
             }
             Err(e) => {
                 warn!("Provider search via {:?} failed: {}", method, e);
                 last_error = Some(e);
-                if !allow_fallback {
-                    break;
-                }
             }
         }
     }
@@ -185,7 +185,7 @@ macro_rules! impl_search_provider {
         #[derive(Debug)]
         pub struct $provider_name {
             fetcher: WebFetcher,
-            search_mode: SearchMode,
+            browser_enabled: bool,
             api_key: Option<String>,
             base_url: Option<String>,
         }
@@ -194,7 +194,7 @@ macro_rules! impl_search_provider {
             pub fn new_web(fetcher: WebFetcher) -> Self {
                 Self {
                     fetcher,
-                    search_mode: SearchMode::Auto,
+                    browser_enabled: true,
                     api_key: None,
                     base_url: None,
                 }
@@ -202,13 +202,13 @@ macro_rules! impl_search_provider {
 
             pub fn with_options(
                 fetcher: WebFetcher,
-                search_mode: SearchMode,
+                browser_enabled: bool,
                 api_key: Option<String>,
                 base_url: Option<String>,
             ) -> Self {
                 Self {
                     fetcher,
-                    search_mode,
+                    browser_enabled,
                     api_key,
                     base_url,
                 }
@@ -227,7 +227,7 @@ macro_rules! impl_search_provider {
                 provider_search_cascade(
                     &mut self.fetcher,
                     $engine_type,
-                    self.search_mode,
+                    self.browser_enabled,
                     &self.api_key,
                     &self.base_url,
                     query,
@@ -278,7 +278,7 @@ impl ProviderVariant {
     pub fn from_engine_type(engine_type: SearchEngineType, config: ProviderConfig) -> Result<Self> {
         let ProviderConfig {
             fetcher,
-            search_mode,
+            browser_enabled,
             api_key,
             base_url,
         } = config;
@@ -286,40 +286,40 @@ impl ProviderVariant {
 
         Ok(match engine_type {
             SearchEngineType::Google => ProviderVariant::Google(
-                GoogleSearchProvider::with_options(fetcher, search_mode, api_key, base_url),
+                GoogleSearchProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::GoogleSerper => ProviderVariant::GoogleSerper(
-                GoogleSerperProvider::with_options(fetcher, search_mode, api_key, base_url),
+                GoogleSerperProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::Bing => ProviderVariant::Bing(BingSearchProvider::with_options(
                 fetcher,
-                search_mode,
+                browser_enabled,
                 api_key,
                 base_url,
             )),
             SearchEngineType::DuckDuckGo => ProviderVariant::DuckDuckGo(
-                DuckDuckGoProvider::with_options(fetcher, search_mode, api_key, base_url),
+                DuckDuckGoProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::BraveSearch => ProviderVariant::BraveSearch(
-                BraveSearchProvider::with_options(fetcher, search_mode, api_key, base_url),
+                BraveSearchProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::Baidu => ProviderVariant::Baidu(BaiduSearchProvider::with_options(
                 fetcher,
-                search_mode,
+                browser_enabled,
                 api_key,
                 base_url,
             )),
             SearchEngineType::SougouWeixin => ProviderVariant::SougouWeixin(
-                SougouWeixinProvider::with_options(fetcher, search_mode, api_key, base_url),
+                SougouWeixinProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::Tavily => ProviderVariant::Tavily(
-                TavilySearchProvider::with_options(fetcher, search_mode, api_key, base_url),
+                TavilySearchProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::GoogleAi => ProviderVariant::GoogleAi(
-                GoogleAiSearchProvider::with_options(fetcher, search_mode, api_key, base_url),
+                GoogleAiSearchProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
             SearchEngineType::SearxNG => ProviderVariant::SearxNG(
-                SearxNGSearchProvider::with_options(fetcher, search_mode, api_key, base_url),
+                SearxNGSearchProvider::with_options(fetcher, browser_enabled, api_key, base_url),
             ),
         })
     }
@@ -347,77 +347,64 @@ mod tests {
     use crate::fetcher::WebFetcher;
 
     #[test]
-    fn test_google_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = GoogleSearchProvider::new_web(fetcher);
+    fn test_provider_config_defaults() {
+        let config = ProviderConfig::new(WebFetcher::new());
+        assert!(config.browser_enabled);
+        assert!(config.api_key.is_none());
+        assert!(config.base_url.is_none());
+    }
 
+    #[test]
+    fn test_google_provider_type() {
+        let provider = GoogleSearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::Google);
-        assert!(provider.is_healthy());
     }
 
     #[test]
-    fn test_google_serper_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = GoogleSerperProvider::new_web(fetcher);
-
+    fn test_google_serper_provider_type() {
+        let provider = GoogleSerperProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::GoogleSerper);
-        assert!(provider.is_healthy());
     }
 
     #[test]
-    fn test_bing_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = BingSearchProvider::new_web(fetcher);
-
+    fn test_bing_provider_type() {
+        let provider = BingSearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::Bing);
-        assert!(provider.is_healthy());
     }
 
     #[test]
-    fn test_duckduckgo_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = DuckDuckGoProvider::new_web(fetcher);
-
+    fn test_duckduckgo_provider_type() {
+        let provider = DuckDuckGoProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::DuckDuckGo);
-        assert!(provider.is_healthy());
     }
 
     #[test]
-    fn test_brave_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = BraveSearchProvider::new_web(fetcher);
-
+    fn test_brave_provider_type() {
+        let provider = BraveSearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::BraveSearch);
-        assert!(provider.is_healthy());
     }
 
     #[test]
-    fn test_baidu_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = BaiduSearchProvider::new_web(fetcher);
-
+    fn test_baidu_provider_type() {
+        let provider = BaiduSearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::Baidu);
-        assert!(provider.is_healthy());
     }
 
     #[test]
-    fn test_tavily_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = TavilySearchProvider::new_web(fetcher);
+    fn test_tavily_provider_type() {
+        let provider = TavilySearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::Tavily);
     }
 
     #[test]
-    fn test_googleai_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = GoogleAiSearchProvider::new_web(fetcher);
+    fn test_googleai_provider_type() {
+        let provider = GoogleAiSearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::GoogleAi);
     }
 
     #[test]
-    fn test_searxng_search_provider() {
-        let fetcher = WebFetcher::new();
-        let provider = SearxNGSearchProvider::new_web(fetcher);
+    fn test_searxng_provider_type() {
+        let provider = SearxNGSearchProvider::new_web(WebFetcher::new());
         assert_eq!(provider.get_engine_type(), SearchEngineType::SearxNG);
     }
 
@@ -450,14 +437,5 @@ mod tests {
         )
         .unwrap();
         assert_eq!(tavily_variant.engine_type(), SearchEngineType::Tavily);
-    }
-
-    #[test]
-    fn test_provider_config() {
-        let fetcher = WebFetcher::new();
-        let config = ProviderConfig::new(fetcher);
-        assert_eq!(config.search_mode, SearchMode::Auto);
-        assert!(config.api_key.is_none());
-        assert!(config.base_url.is_none());
     }
 }

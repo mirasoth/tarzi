@@ -15,13 +15,13 @@ All examples are available in the ``examples/`` directory of the repository:
 
    # Python examples
    python examples/basic_usage.py
-   python examples/search_modes.py
+   python examples/search_cascade.py
    python examples/search_engine_serper.py
    python examples/sogou_weixin_search.py
 
    # Rust examples
    cargo run --example basic_usage
-   cargo run --example search_modes
+   cargo run --example search_cascade
    cargo run --example search_engine_brave
    cargo run --example search_engine_serper
    cargo run --example search_engine_default
@@ -29,15 +29,15 @@ All examples are available in the ``examples/`` directory of the repository:
 Example Catalog
 ---------------
 
-**Search access modes**
-   ``search_modes`` (Rust / Python) — walks Bing/DuckDuckGo/Brave/Serper/Google across
-   ``auto``, ``apiquery``, and ``webquery``. Optional: ``BRAVE_API_KEY``, ``SERPER_API_KEY``.
+**Search access cascade**
+   ``search_cascade`` (Rust / Python) — browser toggle and multi-engine failover.
+   Optional: ``BRAVE_API_KEY``, ``SERPER_API_KEY``.
 
 **Brave cascade**
-   ``search_engine_brave`` — Brave with ``mode=auto`` (API when keyed, else web).
+   ``search_engine_brave`` — Brave with API → HTTP → browser (API when keyed).
 
 **Google via Serper**
-   ``search_engine_serper`` (Rust / Python) — API-only ``google_serper`` / ``apiquery``.
+   ``search_engine_serper`` (Rust / Python) — API-only ``google_serper`` (requires ``SERPER_API_KEY``).
    Requires ``SERPER_API_KEY``.
 
 **Default engine**

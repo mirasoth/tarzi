@@ -14,8 +14,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut config = Config::load().unwrap_or_default();
     config.search.engine = "google_serper".to_string();
-    // API-only engine; auto and apiquery both require a key
-    config.search.mode = "apiquery".to_string();
     config.search.limit = 5;
     // Prefer SERPER_API_KEY env; optional fallback:
     // config.search.api_key = Some("your-serper-api-key".to_string());

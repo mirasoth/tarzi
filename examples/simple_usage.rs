@@ -62,12 +62,12 @@ async fn main() -> Result<()> {
         Err(e) => println!("   JSON conversion failed: {e}"),
     }
 
-    // Example 3: Search engine configuration (engine + access mode)
+    // Example 3: Search engine configuration
     println!("\n3. Testing search engine configuration:");
     println!("   Default search engine: {}", config.search.engine);
     println!(
-        "   Search mode: {} (auto | apiquery | webquery)",
-        config.search.mode
+        "   Search browser fallback: {} (TARZI_SEARCH_BROWSER)",
+        config.search.browser
     );
     println!("   Search limit: {}", config.search.limit);
     println!("   Query pattern: {}", config.search.query_pattern);
@@ -75,8 +75,9 @@ async fn main() -> Result<()> {
     // Create search engine
     let search_engine = SearchEngine::from_config(&config);
     println!(
-        "   Search engine initialized (resolved mode={:?})",
-        search_engine.search_mode()
+        "   Search engine initialized (browser={}, engines={:?})",
+        search_engine.browser_enabled(),
+        search_engine.engines()
     );
 
     println!("\n=== Simple Example Complete ===");

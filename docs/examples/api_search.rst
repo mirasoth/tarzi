@@ -6,16 +6,14 @@ This guide demonstrates tarzi's search access cascade: API → plain HTTP → he
 Access Cascade
 --------------
 
-With ``search.mode = "auto"`` (default), tarzi tries:
+With ``search.browser = true`` (default), tarzi tries:
 
-1. **API** when the engine supports apiquery and a key is available
+1. **API** when the engine supports it and credentials are present (env probed first)
 2. **Plain HTTP** to the engine's public search URL
-3. **Headless browser** as a last resort
+3. **Browser** as a last resort (disable with ``TARZI_SEARCH_BROWSER=false``)
 
-Forced modes:
-
-- ``apiquery`` — API only (errors if unsupported or key missing)
-- ``webquery`` — plain HTTP then browser (never uses API)
+Use a comma-separated ``TARZI_SEARCH_ENGINE`` list for ordered engine failover.
+API-only engines without credentials are skipped before any network call.
 
 Engine Capabilities
 -------------------
@@ -74,7 +72,7 @@ Python
    config_str = """
    [search]
    engine = "brave"
-   mode = "auto"
+   browser = true
    limit = 5
    api_key = "your-brave-api-key"
    """
@@ -103,7 +101,7 @@ Rust
    async fn main() -> Result<(), Box<dyn std::error::Error>> {
        let mut config = Config::new();
        config.search.engine = "brave".to_string();
-       config.search.mode = "apiquery".to_string();
+       config.search.browser = false;
        config.search.limit = 5;
        config.search.api_key = Some("your-brave-api-key".to_string());
 
@@ -130,15 +128,16 @@ Google via Serper
 
    [search]
    engine = "google_serper"
-   mode = "apiquery"
+   browser = false
    limit = 10
    # Prefer env: export SERPER_API_KEY=...
    # api_key = "your-serper-api-key"
 
-Web-only Mode
--------------
+Skipping API (web engines)
+--------------------------
 
-Force the HTTP → browser path (useful to avoid spending API quota):
+Use a web-capable engine and leave API keys unset so the cascade starts at plain HTTP.
+Set ``browser = false`` to skip WebDriver as well:
 
 .. code-block:: python
 
@@ -147,8 +146,8 @@ Force the HTTP → browser path (useful to avoid spending API quota):
    config = tarzi.Config.from_str(
        """
    [search]
-   engine = "brave"
-   mode = "webquery"
+   engine = "duckduckgo,bing"
+   browser = false
    limit = 5
    """
    )
@@ -170,11 +169,11 @@ From the repository ``examples/`` directory:
 
 .. code-block:: bash
 
-   cargo run --example search_modes
+   cargo run --example search_cascade
    cargo run --example search_engine_brave
    cargo run --example search_engine_serper
 
-   python examples/search_modes.py
+   python examples/search_cascade.py
    python examples/search_engine_serper.py
 
 See also :doc:`/configuration` for the full engine capability table.

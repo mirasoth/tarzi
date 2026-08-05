@@ -25,7 +25,7 @@ To add a new search engine:
 5. Declare ``supports_api`` / ``supports_web`` / ``is_api_only`` behavior on the engine type
 6. If the engine has an official API, add a client under ``src/search/api/`` and wire it into
    ``resolve_access`` / ``SearchEngine::search_via_api``
-7. Add unit coverage in the engine×mode matrix (``src/search/access.rs``) and examples/docs
+7. Add unit coverage in the engine×access matrix (``src/search/access.rs``) and examples/docs
 
 Development Setup
 -----------------
@@ -96,8 +96,8 @@ Rust Tests
    # Library unit tests (includes access cascade matrix)
    cargo test --lib
 
-   # Search mode integration (all engines × modes; network soft-fails)
-   cargo test --test search_mode_integration_tests
+   # Search cascade integration (engines × browser; network soft-fails)
+   cargo test --test search_cascade_integration_tests
 
    # Run with output
    cargo test -- --nocapture
@@ -107,15 +107,15 @@ Python Tests
 
 .. code-block:: bash
 
-   # Unit tests (includes tests/python/test_search_modes.py)
+   # Unit tests (includes tests/python/test_search_cascade.py)
    make test-unit-python
 
-   # Integration (includes search_mode_integration_test.py)
+   # Integration (includes search_cascade_integration_test.py)
    make test-integration-python
 
    # Focused
-   uv run pytest tests/python/test_search_modes.py -q
-   uv run pytest tests/python/integration/search_mode_integration_test.py -q
+   uv run pytest tests/python/test_search_cascade.py -q
+   uv run pytest tests/python/integration/search_cascade_integration_test.py -q
 
 Documentation
 -------------

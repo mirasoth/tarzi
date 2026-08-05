@@ -154,13 +154,8 @@ pub const SEARCH_ENGINE_GOOGLEAI: &str = "googleai";
 pub const SEARCH_ENGINE_GOOGLE_AI_ALIAS: &str = "google_ai";
 pub const SEARCH_ENGINE_SEARXNG: &str = "searxng";
 
-// Search modes
-pub const SEARCH_MODE_AUTO: &str = "auto";
-pub const SEARCH_MODE_APIQUERY: &str = "apiquery";
-pub const SEARCH_MODE_WEBQUERY: &str = "webquery";
-
-/// Default search mode
-pub const DEFAULT_SEARCH_MODE: &str = SEARCH_MODE_AUTO;
+/// Default: allow headless/headed browser as a search access fallback
+pub const DEFAULT_SEARCH_BROWSER: bool = true;
 
 // API key / host environment variable names
 pub const ENV_BRAVE_API_KEY: &str = "BRAVE_API_KEY";
@@ -182,7 +177,7 @@ pub const ENV_TARZI_WEB_DRIVER_URL: &str = "TARZI_WEB_DRIVER_URL";
 pub const ENV_TARZI_SEARCH_ENGINE: &str = "TARZI_SEARCH_ENGINE";
 pub const ENV_TARZI_QUERY_PATTERN: &str = "TARZI_QUERY_PATTERN";
 pub const ENV_TARZI_SEARCH_LIMIT: &str = "TARZI_SEARCH_LIMIT";
-pub const ENV_TARZI_SEARCH_MODE: &str = "TARZI_SEARCH_MODE";
+pub const ENV_TARZI_SEARCH_BROWSER: &str = "TARZI_SEARCH_BROWSER";
 
 // ============================================================================
 // Search Engine Query Patterns

@@ -113,15 +113,13 @@ engine = "{engine}"
             search_engine = tarzi.SearchEngine.from_config(config)
             assert isinstance(search_engine, tarzi.SearchEngine)
 
-    def test_search_mode_options(self):
-        """Test different search access mode configuration options."""
-        modes = ["auto", "apiquery", "webquery"]
-
-        for mode in modes:
+    def test_search_browser_options(self):
+        """Test search.browser configuration options."""
+        for browser in [True, False]:
             config_str = f"""
 [search]
 engine = "brave"
-mode = "{mode}"
+browser = {str(browser).lower()}
 """
             config = tarzi.Config.from_str(config_str)
             assert isinstance(config, tarzi.Config)

@@ -8,10 +8,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration with proper precedence
     let mut config = Config::load().unwrap_or_default();
     config.fetcher.mode = "browser_head".to_string();
-    // Default search.mode is "auto" (API → plain HTTP → browser when supported)
+    // Cascade: API (if credentials) → plain HTTP → browser (if search.browser)
     println!(
-        "Using engine={} mode={}",
-        config.search.engine, config.search.mode
+        "Using engine={} browser={}",
+        config.search.engine, config.search.browser
     );
 
     // Create search engine from config

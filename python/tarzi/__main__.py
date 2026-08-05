@@ -31,6 +31,16 @@ def main():
     search_parser = subparsers.add_parser("search", help="Search using search engines")
     search_parser.add_argument("-q", "--query", required=True, help="Search query")
     search_parser.add_argument("-l", "--limit", type=int, default=10, help="Number of results to return")
+    search_parser.add_argument(
+        "--engine",
+        help="Search engine or comma-separated failover list (overrides TARZI_SEARCH_ENGINE)",
+    )
+    search_parser.add_argument(
+        "--browser",
+        type=lambda v: str(v).lower() in ("1", "true", "yes", "on"),
+        default=None,
+        help="Enable browser search fallback (true/false; overrides TARZI_SEARCH_BROWSER)",
+    )
     search_parser.add_argument("-f", "--format", default="json", help="Output format: json or yaml")
     search_parser.add_argument("-o", "--output", help="Output file path (optional)")
     search_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
@@ -39,6 +49,16 @@ def main():
     search_fetch_parser = subparsers.add_parser("search-with-content", help="Search and fetch content for each result")
     search_fetch_parser.add_argument("-q", "--query", required=True, help="Search query")
     search_fetch_parser.add_argument("-l", "--limit", type=int, default=5, help="Number of results to return")
+    search_fetch_parser.add_argument(
+        "--engine",
+        help="Search engine or comma-separated failover list (overrides TARZI_SEARCH_ENGINE)",
+    )
+    search_fetch_parser.add_argument(
+        "--browser",
+        type=lambda v: str(v).lower() in ("1", "true", "yes", "on"),
+        default=None,
+        help="Enable browser search fallback (true/false; overrides TARZI_SEARCH_BROWSER)",
+    )
     search_fetch_parser.add_argument(
         "-f", "--format", default="markdown", help="Output format: html, markdown, json, or yaml"
     )
@@ -87,6 +107,12 @@ def main():
                 print(result)
 
         elif args.command == "search":
+            if getattr(args, "engine", None):
+                config.set_search_engine(args.engine)
+            if getattr(args, "browser", None) is not None:
+                config.set_search_browser(args.browser)
+            if args.limit:
+                config.set_search_limit(args.limit)
             engine = tarzi.SearchEngine.from_config(config)
             results = engine.search(args.query, args.limit)
 
@@ -112,11 +138,17 @@ def main():
             else:
                 print(result)
 
+            engine.shutdown()
+
         elif args.command == "search-with-content":
+            if getattr(args, "engine", None):
+                config.set_search_engine(args.engine)
+            if getattr(args, "browser", None) is not None:
+                config.set_search_browser(args.browser)
+            if args.limit:
+                config.set_search_limit(args.limit)
             engine = tarzi.SearchEngine.from_config(config)
-            results_with_content = engine.search_with_content(
-                args.query, args.limit, "browser_headless", args.format
-            )
+            results_with_content = engine.search_with_content(args.query, args.limit, "browser_headless", args.format)
 
             # Format the combined results
             if args.format == "json":

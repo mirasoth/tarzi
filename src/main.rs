@@ -59,6 +59,12 @@ enum Commands {
         /// Number of results to return
         #[arg(short, long)]
         limit: Option<usize>,
+        /// Search engine or comma-separated failover list
+        #[arg(long)]
+        engine: Option<String>,
+        /// Enable browser as search fallback (default true)
+        #[arg(long, default_missing_value = "true", num_args = 0..=1, action = clap::ArgAction::Set)]
+        browser: Option<bool>,
         /// Output format: json or yaml
         #[arg(short, long, default_value = FORMAT_JSON)]
         format: String,
@@ -77,6 +83,12 @@ enum Commands {
         /// Number of results to return
         #[arg(short, long, default_value = "5")]
         limit: usize,
+        /// Search engine or comma-separated failover list
+        #[arg(long)]
+        engine: Option<String>,
+        /// Enable browser as search fallback (default true)
+        #[arg(long, default_missing_value = "true", num_args = 0..=1, action = clap::ArgAction::Set)]
+        browser: Option<bool>,
         /// Output format: html, markdown, json, or yaml
         #[arg(short, long, default_value = FORMAT_MARKDOWN)]
         format: String,
@@ -153,6 +165,8 @@ async fn main() -> Result<()> {
         Commands::Search {
             query,
             limit,
+            engine,
+            browser,
             format,
             output,
             verbose: _,
@@ -163,6 +177,12 @@ async fn main() -> Result<()> {
 
             // Apply CLI parameters to config
             cli_params.search_limit = Some(effective_limit);
+            if let Some(engine) = engine {
+                cli_params.search_engine = Some(engine);
+            }
+            if let Some(browser) = browser {
+                cli_params.search_browser = Some(browser);
+            }
             config.apply_cli_params(&cli_params);
 
             let mut search_engine = SearchEngine::from_config(&config);
@@ -187,6 +207,8 @@ async fn main() -> Result<()> {
         Commands::SearchAndFetch {
             query,
             limit,
+            engine,
+            browser,
             format,
             output,
             verbose: _,
@@ -195,6 +217,12 @@ async fn main() -> Result<()> {
             // Apply CLI parameters to config
             cli_params.search_limit = Some(limit);
             cli_params.fetcher_format = Some(format.clone());
+            if let Some(engine) = engine {
+                cli_params.search_engine = Some(engine);
+            }
+            if let Some(browser) = browser {
+                cli_params.search_browser = Some(browser);
+            }
             config.apply_cli_params(&cli_params);
 
             let mut search_engine = SearchEngine::from_config(&config);

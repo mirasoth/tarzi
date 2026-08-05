@@ -3,7 +3,7 @@ use super::api::{
     search_brave_api, search_googleai_api, search_searxng_api, search_serper_api, search_tavily_api,
 };
 use super::parser::ParserFactory;
-use super::types::{AccessMethod, SearchEngineType, SearchMode, SearchResult};
+use super::types::{AccessMethod, SearchEngineType, SearchResult, parse_engine_list};
 use crate::config::Config;
 use crate::{
     Result,
@@ -12,38 +12,49 @@ use crate::{
 };
 use std::str::FromStr;
 
-use crate::constants::{DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_MODE};
+use crate::constants::DEFAULT_QUERY_PATTERN;
 use tracing::{info, warn};
 
 pub struct SearchEngine {
     fetcher: WebFetcher,
+    /// Ordered failover list; `engine_type` is always `engines[0]`.
+    engines: Vec<SearchEngineType>,
     engine_type: SearchEngineType,
+    /// Custom query pattern from config; applied only for a single-engine setup.
     query_pattern: String,
+    custom_query_pattern: bool,
     user_agent: String,
     parser_factory: ParserFactory,
     fetch_mode: FetchMode,
-    search_mode: SearchMode,
-    api_key: Option<String>,
-    base_url: Option<String>,
+    browser_enabled: bool,
+    /// Programmatic api_key / base_url from config (env still wins per engine at use time).
+    config_api_key: Option<String>,
+    config_base_url: Option<String>,
 }
 
 impl SearchEngine {
     pub fn new() -> Self {
         Self {
             fetcher: WebFetcher::new(),
+            engines: vec![SearchEngineType::Bing],
             engine_type: SearchEngineType::Bing,
             query_pattern: SearchEngineType::Bing.get_query_pattern(),
+            custom_query_pattern: false,
             user_agent: crate::constants::DEFAULT_USER_AGENT.to_string(),
             parser_factory: ParserFactory::new(),
             fetch_mode: FetchMode::BrowserHeadless,
-            search_mode: SearchMode::Auto,
-            api_key: None,
-            base_url: None,
+            browser_enabled: true,
+            config_api_key: None,
+            config_base_url: None,
         }
     }
 
     pub fn engine_type(&self) -> &SearchEngineType {
         &self.engine_type
+    }
+
+    pub fn engines(&self) -> &[SearchEngineType] {
+        &self.engines
     }
 
     pub fn query_pattern(&self) -> &str {
@@ -54,87 +65,141 @@ impl SearchEngine {
         &self.user_agent
     }
 
-    pub fn search_mode(&self) -> SearchMode {
-        self.search_mode
+    pub fn browser_enabled(&self) -> bool {
+        self.browser_enabled
     }
 
     pub fn from_config(config: &Config) -> Self {
         let fetcher = crate::fetcher::WebFetcher::from_config(config);
 
-        let engine_type =
-            SearchEngineType::from_str(&config.search.engine).unwrap_or(SearchEngineType::Bing);
+        let engines = parse_engine_list(&config.search.engine)
+            .unwrap_or_else(|_| vec![SearchEngineType::Bing]);
+        let engine_type = engines[0];
 
-        let query_pattern = if config.search.query_pattern != DEFAULT_QUERY_PATTERN {
+        let custom_query_pattern = config.search.query_pattern != DEFAULT_QUERY_PATTERN;
+        let query_pattern = if custom_query_pattern && engines.len() == 1 {
             config.search.query_pattern.clone()
         } else {
+            if custom_query_pattern && engines.len() > 1 {
+                warn!(
+                    "Ignoring custom query_pattern for multi-engine list; using per-engine patterns"
+                );
+            }
             engine_type.get_query_pattern()
         };
 
         let fetch_mode =
             FetchMode::from_str(&config.fetcher.mode).unwrap_or(FetchMode::BrowserHeadless);
 
-        let search_mode = SearchMode::from_str(&config.search.mode).unwrap_or_else(|_| {
-            SearchMode::from_str(DEFAULT_SEARCH_MODE).unwrap_or(SearchMode::Auto)
-        });
-
-        let api_key = resolve_api_key(engine_type, &config.search.api_key);
-        let base_url = resolve_base_url(engine_type, &config.search.base_url);
-
         Self {
             fetcher,
+            engines,
             engine_type,
             query_pattern,
+            custom_query_pattern,
             user_agent: config.fetcher.user_agent.clone(),
             parser_factory: ParserFactory::new(),
             fetch_mode,
-            search_mode,
-            api_key,
-            base_url,
+            browser_enabled: config.search.browser,
+            config_api_key: config.search.api_key.clone(),
+            config_base_url: config.search.base_url.clone(),
         }
     }
 
     pub async fn search(&mut self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
-        let has_credentials = has_api_credentials(self.engine_type, &self.api_key, &self.base_url);
-        let methods = resolve_access(self.engine_type, self.search_mode, has_credentials)?;
+        let mut errors: Vec<String> = Vec::new();
 
-        let allow_fallback = matches!(self.search_mode, SearchMode::Auto | SearchMode::WebQuery);
-        let mut last_error: Option<TarziError> = None;
+        for engine in self.engines.clone() {
+            self.engine_type = engine;
+            if self.custom_query_pattern && self.engines.len() == 1 {
+                // keep configured pattern
+            } else {
+                self.query_pattern = engine.get_query_pattern();
+            }
 
-        for method in methods {
-            match self.search_with_method(query, limit, method).await {
+            let api_key = resolve_api_key(engine, &self.config_api_key);
+            let base_url = resolve_base_url(engine, &self.config_base_url);
+            let has_credentials = has_api_credentials(engine, &api_key, &base_url);
+
+            // API-only engines: probe credentials before any network call.
+            if engine.is_api_only() && !has_credentials {
+                let msg = engine.missing_credentials_message();
+                warn!("Skipping {:?}: {}", engine, msg);
+                errors.push(format!("{engine:?}: {msg}"));
+                continue;
+            }
+
+            let methods = match resolve_access(engine, has_credentials, self.browser_enabled) {
+                Ok(m) => m,
+                Err(e) => {
+                    warn!("Skipping {:?}: {}", engine, e);
+                    errors.push(format!("{engine:?}: {e}"));
+                    continue;
+                }
+            };
+
+            match self
+                .search_one_engine(query, limit, engine, &methods, &api_key, &base_url)
+                .await
+            {
                 Ok(results) if !results.is_empty() => {
-                    info!(
-                        "Search succeeded via {:?} for engine {:?}",
-                        method, self.engine_type
-                    );
+                    info!("Search succeeded for engine {:?}", engine);
                     return Ok(results);
                 }
                 Ok(_) => {
-                    let msg = format!(
-                        "Search via {:?} returned no results for {:?}",
-                        method, self.engine_type
-                    );
+                    let msg = format!("{engine:?}: returned no results");
                     warn!("{}", msg);
-                    last_error = Some(TarziError::Search(msg));
-                    if !allow_fallback {
-                        break;
-                    }
+                    errors.push(msg);
                 }
                 Err(e) => {
-                    warn!(
-                        "Search via {:?} failed for {:?}: {}",
-                        method, self.engine_type, e
-                    );
-                    last_error = Some(e);
-                    if !allow_fallback {
-                        break;
-                    }
+                    warn!("Search failed for {:?}: {}", engine, e);
+                    errors.push(format!("{engine:?}: {e}"));
                 }
             }
         }
 
-        Err(last_error
-            .unwrap_or_else(|| TarziError::Search("All search access methods failed".to_string())))
+        Err(TarziError::Search(if errors.is_empty() {
+            "All search engines failed".to_string()
+        } else {
+            format!("All search engines failed: {}", errors.join("; "))
+        }))
+    }
+
+    async fn search_one_engine(
+        &mut self,
+        query: &str,
+        limit: usize,
+        engine: SearchEngineType,
+        methods: &[AccessMethod],
+        api_key: &Option<String>,
+        base_url: &Option<String>,
+    ) -> Result<Vec<SearchResult>> {
+        let mut last_error: Option<TarziError> = None;
+
+        for method in methods {
+            match self
+                .search_with_method(query, limit, *method, engine, api_key, base_url)
+                .await
+            {
+                Ok(results) if !results.is_empty() => {
+                    info!("Search succeeded via {:?} for engine {:?}", method, engine);
+                    return Ok(results);
+                }
+                Ok(_) => {
+                    let msg = format!("Search via {method:?} returned no results for {engine:?}");
+                    warn!("{}", msg);
+                    last_error = Some(TarziError::Search(msg));
+                }
+                Err(e) => {
+                    warn!("Search via {:?} failed for {:?}: {}", method, engine, e);
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            TarziError::Search(format!("All search access methods failed for {engine:?}"))
+        }))
     }
 
     async fn search_with_method(
@@ -142,15 +207,20 @@ impl SearchEngine {
         query: &str,
         limit: usize,
         method: AccessMethod,
+        engine: SearchEngineType,
+        api_key: &Option<String>,
+        base_url: &Option<String>,
     ) -> Result<Vec<SearchResult>> {
         match method {
-            AccessMethod::Api => self.search_via_api(query, limit).await,
+            AccessMethod::Api => {
+                self.search_via_api(query, limit, engine, api_key, base_url)
+                    .await
+            }
             AccessMethod::PlainHttp => {
                 self.search_via_web(query, limit, FetchMode::PlainRequest, true)
                     .await
             }
             AccessMethod::Browser => {
-                // Prefer configured browser mode when it is a browser mode; otherwise headless.
                 let browser_mode = match self.fetch_mode {
                     FetchMode::BrowserHead => FetchMode::BrowserHead,
                     _ => FetchMode::BrowserHeadless,
@@ -160,34 +230,40 @@ impl SearchEngine {
         }
     }
 
-    async fn search_via_api(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
-        match self.engine_type {
+    async fn search_via_api(
+        &self,
+        query: &str,
+        limit: usize,
+        engine: SearchEngineType,
+        api_key: &Option<String>,
+        base_url: &Option<String>,
+    ) -> Result<Vec<SearchResult>> {
+        match engine {
             SearchEngineType::SearxNG => {
-                let host = self.base_url.as_deref().ok_or_else(|| {
+                let host = base_url.as_deref().ok_or_else(|| {
                     TarziError::Search(SearchEngineType::SearxNG.missing_credentials_message())
                 })?;
                 search_searxng_api(&self.fetcher, query, limit, host).await
             }
-            engine => {
-                let api_key = self
-                    .api_key
+            other => {
+                let key = api_key
                     .as_deref()
-                    .ok_or_else(|| TarziError::Search(engine.missing_credentials_message()))?;
-                match engine {
+                    .ok_or_else(|| TarziError::Search(other.missing_credentials_message()))?;
+                match other {
                     SearchEngineType::BraveSearch => {
-                        search_brave_api(&self.fetcher, query, limit, api_key).await
+                        search_brave_api(&self.fetcher, query, limit, key).await
                     }
                     SearchEngineType::GoogleSerper => {
-                        search_serper_api(&self.fetcher, query, limit, api_key).await
+                        search_serper_api(&self.fetcher, query, limit, key).await
                     }
                     SearchEngineType::Tavily => {
-                        search_tavily_api(&self.fetcher, query, limit, api_key).await
+                        search_tavily_api(&self.fetcher, query, limit, key).await
                     }
                     SearchEngineType::GoogleAi => {
-                        search_googleai_api(&self.fetcher, query, limit, api_key).await
+                        search_googleai_api(&self.fetcher, query, limit, key).await
                     }
-                    other => Err(TarziError::Search(format!(
-                        "Engine {other:?} does not support API access"
+                    e => Err(TarziError::Search(format!(
+                        "Engine {e:?} does not support API access"
                     ))),
                 }
             }
@@ -208,10 +284,7 @@ impl SearchEngine {
             )));
         }
 
-        let pattern = if self.query_pattern != DEFAULT_QUERY_PATTERN
-            && self.query_pattern != self.engine_type.get_query_pattern()
-        {
-            // Explicit custom pattern from config
+        let pattern = if self.custom_query_pattern && self.engines.len() == 1 {
             self.query_pattern.clone()
         } else if use_plain_pattern {
             self.engine_type.plain_query_pattern()
@@ -316,8 +389,6 @@ impl SearchEngine {
         proxy: &str,
     ) -> Result<Vec<SearchResult>> {
         info!("Starting search with proxy hint: {}", proxy);
-        // Proxy is applied via WebFetcher config / HTTPS_PROXY env for plain and API paths.
-        // Browser proxy wiring remains limited.
         let _ = crate::config::get_proxy_from_env_or_config(&Some(proxy.to_string()));
         self.search(query, limit).await
     }
@@ -359,7 +430,8 @@ mod tests {
             engine.query_pattern(),
             SearchEngineType::Bing.get_query_pattern()
         );
-        assert_eq!(engine.search_mode(), SearchMode::Auto);
+        assert!(engine.browser_enabled());
+        assert_eq!(engine.engines(), &[SearchEngineType::Bing]);
     }
 
     #[test]
@@ -367,12 +439,29 @@ mod tests {
         let mut config = crate::config::Config::new();
         config.search.engine = SEARCH_ENGINE_GOOGLE.to_string();
         config.search.query_pattern = "custom pattern".to_string();
-        config.search.mode = SEARCH_MODE_WEBQUERY.to_string();
+        config.search.browser = false;
 
         let engine = SearchEngine::from_config(&config);
         assert_eq!(engine.engine_type(), &SearchEngineType::Google);
         assert_eq!(engine.query_pattern(), "custom pattern");
-        assert_eq!(engine.search_mode(), SearchMode::WebQuery);
+        assert!(!engine.browser_enabled());
+    }
+
+    #[test]
+    fn test_search_engine_multi_engine_list() {
+        let mut config = crate::config::Config::new();
+        config.search.engine = "brave,duckduckgo,bing".to_string();
+
+        let engine = SearchEngine::from_config(&config);
+        assert_eq!(engine.engine_type(), &SearchEngineType::BraveSearch);
+        assert_eq!(
+            engine.engines(),
+            &[
+                SearchEngineType::BraveSearch,
+                SearchEngineType::DuckDuckGo,
+                SearchEngineType::Bing
+            ]
+        );
     }
 
     #[test]
@@ -408,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_engine_from_config_all_engines_all_modes() {
+    fn test_search_engine_from_config_all_engines() {
         let engines = [
             SEARCH_ENGINE_BING,
             SEARCH_ENGINE_DUCKDUCKGO,
@@ -419,24 +508,17 @@ mod tests {
             SEARCH_ENGINE_BAIDU,
             SEARCH_ENGINE_SOUGOU_WEIXIN,
         ];
-        let modes = [SEARCH_MODE_AUTO, SEARCH_MODE_APIQUERY, SEARCH_MODE_WEBQUERY];
 
         for engine_name in engines {
-            for mode in modes {
-                let mut config = crate::config::Config::new();
-                config.search.engine = engine_name.to_string();
-                config.search.mode = mode.to_string();
-                config.search.api_key = Some("unit-test-key".to_string());
+            let mut config = crate::config::Config::new();
+            config.search.engine = engine_name.to_string();
+            config.search.api_key = Some("unit-test-key".to_string());
+            config.search.browser = true;
 
-                let engine = SearchEngine::from_config(&config);
-                let expected_type = SearchEngineType::from_str(engine_name).unwrap();
-                assert_eq!(engine.engine_type(), &expected_type, "engine={engine_name}");
-                assert_eq!(
-                    engine.search_mode(),
-                    SearchMode::from_str(mode).unwrap(),
-                    "engine={engine_name} mode={mode}"
-                );
-            }
+            let engine = SearchEngine::from_config(&config);
+            let expected_type = SearchEngineType::from_str(engine_name).unwrap();
+            assert_eq!(engine.engine_type(), &expected_type, "engine={engine_name}");
+            assert!(engine.browser_enabled());
         }
     }
 
@@ -445,10 +527,8 @@ mod tests {
         let mut config = crate::config::Config::new();
         config.search.engine = SEARCH_ENGINE_GOOGLE_SERPER.to_string();
         config.search.api_key = Some("test-key".to_string());
-        config.search.mode = SEARCH_MODE_APIQUERY.to_string();
 
         let engine = SearchEngine::from_config(&config);
         assert_eq!(engine.engine_type(), &SearchEngineType::GoogleSerper);
-        assert_eq!(engine.search_mode(), SearchMode::ApiQuery);
     }
 }

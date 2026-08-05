@@ -13,7 +13,6 @@ def main():
         """
 [search]
 engine = "google_serper"
-mode = "apiquery"
 limit = 5
 """
     )

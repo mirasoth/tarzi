@@ -1,6 +1,6 @@
 //! Search access method resolution (API → plain HTTP → browser).
 
-use super::types::{AccessMethod, SearchEngineType, SearchMode};
+use super::types::{AccessMethod, SearchEngineType};
 use crate::constants::{
     ENV_BRAVE_API_KEY, ENV_GEMINI_API_KEY, ENV_SEARX_HOST, ENV_SERPER_API_KEY, ENV_TAVILY_API_KEY,
 };
@@ -73,59 +73,38 @@ pub fn has_api_credentials(
     }
 }
 
-/// Build ordered access attempts for the given engine, mode, and credential availability.
+/// Build ordered access attempts for an engine.
 ///
-/// For API-only engines without credentials, returns an error.
+/// Cascade: API (if supported and credentials present) → plain HTTP → browser (if enabled).
+/// API-only engines without credentials return an error (caller should skip or fail).
 pub fn resolve_access(
     engine: SearchEngineType,
-    mode: SearchMode,
     has_credentials: bool,
+    browser_enabled: bool,
 ) -> Result<Vec<AccessMethod>, TarziError> {
-    if engine.is_api_only() {
-        return match mode {
-            SearchMode::WebQuery => Err(TarziError::Search(format!(
-                "Engine {engine:?} only supports apiquery; webquery is not available"
-            ))),
-            SearchMode::Auto | SearchMode::ApiQuery => {
-                if has_credentials {
-                    Ok(vec![AccessMethod::Api])
-                } else {
-                    Err(TarziError::Search(engine.missing_credentials_message()))
-                }
-            }
-        };
+    let mut methods = Vec::new();
+
+    if engine.supports_api() && has_credentials {
+        methods.push(AccessMethod::Api);
     }
 
-    match mode {
-        SearchMode::ApiQuery => {
-            if !engine.supports_api() {
-                return Err(TarziError::Search(format!(
-                    "Engine {engine:?} does not support apiquery"
-                )));
-            }
-            if !has_credentials {
-                return Err(TarziError::Search(engine.missing_credentials_message()));
-            }
-            Ok(vec![AccessMethod::Api])
-        }
-        SearchMode::WebQuery => Ok(vec![AccessMethod::PlainHttp, AccessMethod::Browser]),
-        SearchMode::Auto => {
-            let mut methods = Vec::new();
-            if engine.supports_api() && has_credentials {
-                methods.push(AccessMethod::Api);
-            }
-            if engine.supports_web() {
-                methods.push(AccessMethod::PlainHttp);
-                methods.push(AccessMethod::Browser);
-            }
-            if methods.is_empty() {
-                return Err(TarziError::Search(format!(
-                    "No access methods available for engine {engine:?}"
-                )));
-            }
-            Ok(methods)
+    if engine.supports_web() {
+        methods.push(AccessMethod::PlainHttp);
+        if browser_enabled {
+            methods.push(AccessMethod::Browser);
         }
     }
+
+    if methods.is_empty() {
+        if engine.is_api_only() && !has_credentials {
+            return Err(TarziError::Search(engine.missing_credentials_message()));
+        }
+        return Err(TarziError::Search(format!(
+            "No access methods available for engine {engine:?}"
+        )));
+    }
+
+    Ok(methods)
 }
 
 #[cfg(test)]
@@ -162,9 +141,9 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_access_matrix_all_engines_all_modes() {
-        let modes = [SearchMode::Auto, SearchMode::ApiQuery, SearchMode::WebQuery];
+    fn test_resolve_access_matrix() {
         let web_cascade = vec![AccessMethod::PlainHttp, AccessMethod::Browser];
+        let web_no_browser = vec![AccessMethod::PlainHttp];
         let full_cascade = vec![
             AccessMethod::Api,
             AccessMethod::PlainHttp,
@@ -172,45 +151,44 @@ mod tests {
         ];
 
         for engine in all_engines() {
-            for mode in modes {
-                for has_key in [true, false] {
-                    let result = resolve_access(engine, mode, has_key);
-                    let label = format!("{engine:?} mode={mode:?} has_key={has_key}");
+            for has_key in [true, false] {
+                for browser in [true, false] {
+                    let result = resolve_access(engine, has_key, browser);
+                    let label = format!("{engine:?} has_key={has_key} browser={browser}");
 
-                    match (engine, mode, has_key) {
-                        (e, SearchMode::WebQuery, _) if e.is_api_only() => {
-                            assert!(result.is_err(), "{label} should reject webquery");
-                        }
-                        (e, SearchMode::Auto | SearchMode::ApiQuery, true) if e.is_api_only() => {
+                    match (engine, has_key, browser) {
+                        (e, true, true) if e.is_api_only() => {
                             assert_eq!(result.unwrap(), vec![AccessMethod::Api], "{label}");
                         }
-                        (e, SearchMode::Auto | SearchMode::ApiQuery, false) if e.is_api_only() => {
+                        (e, true, false) if e.is_api_only() => {
+                            assert_eq!(result.unwrap(), vec![AccessMethod::Api], "{label}");
+                        }
+                        (e, false, _) if e.is_api_only() => {
                             assert!(result.is_err(), "{label} should require credentials");
                         }
 
-                        // Brave: API + web
-                        (SearchEngineType::BraveSearch, SearchMode::Auto, true) => {
+                        (SearchEngineType::BraveSearch, true, true) => {
                             assert_eq!(result.unwrap(), full_cascade, "{label}");
                         }
-                        (SearchEngineType::BraveSearch, SearchMode::Auto, false) => {
+                        (SearchEngineType::BraveSearch, true, false) => {
+                            assert_eq!(
+                                result.unwrap(),
+                                vec![AccessMethod::Api, AccessMethod::PlainHttp],
+                                "{label}"
+                            );
+                        }
+                        (SearchEngineType::BraveSearch, false, true) => {
                             assert_eq!(result.unwrap(), web_cascade, "{label}");
                         }
-                        (SearchEngineType::BraveSearch, SearchMode::WebQuery, _) => {
-                            assert_eq!(result.unwrap(), web_cascade, "{label}");
-                        }
-                        (SearchEngineType::BraveSearch, SearchMode::ApiQuery, true) => {
-                            assert_eq!(result.unwrap(), vec![AccessMethod::Api], "{label}");
-                        }
-                        (SearchEngineType::BraveSearch, SearchMode::ApiQuery, false) => {
-                            assert!(result.is_err(), "{label} should require API key");
+                        (SearchEngineType::BraveSearch, false, false) => {
+                            assert_eq!(result.unwrap(), web_no_browser, "{label}");
                         }
 
-                        // Web-only engines
-                        (e, SearchMode::ApiQuery, _) if !e.supports_api() => {
-                            assert!(result.is_err(), "{label} should reject apiquery");
-                        }
-                        (e, SearchMode::Auto | SearchMode::WebQuery, _) if e.supports_web() => {
+                        (e, _, true) if e.supports_web() && !e.supports_api() => {
                             assert_eq!(result.unwrap(), web_cascade, "{label}");
+                        }
+                        (e, _, false) if e.supports_web() && !e.supports_api() => {
+                            assert_eq!(result.unwrap(), web_no_browser, "{label}");
                         }
                         _ => panic!("Unhandled matrix cell: {label}"),
                     }
@@ -220,12 +198,12 @@ mod tests {
     }
 
     #[test]
-    fn test_web_only_engines_never_get_api_in_auto() {
+    fn test_web_only_engines_never_get_api() {
         for engine in web_only_engines() {
-            let methods = resolve_access(engine, SearchMode::Auto, true).unwrap();
+            let methods = resolve_access(engine, true, true).unwrap();
             assert!(
                 !methods.contains(&AccessMethod::Api),
-                "{engine:?} must not use API in auto even with a key"
+                "{engine:?} must not use API even with a key"
             );
         }
     }
@@ -240,101 +218,55 @@ mod tests {
     }
 
     #[test]
-    fn test_auto_brave_with_key() {
-        let methods =
-            resolve_access(SearchEngineType::BraveSearch, SearchMode::Auto, true).unwrap();
+    fn test_brave_with_and_without_key() {
+        let with_key = resolve_access(SearchEngineType::BraveSearch, true, true).unwrap();
         assert_eq!(
-            methods,
+            with_key,
             vec![
                 AccessMethod::Api,
                 AccessMethod::PlainHttp,
                 AccessMethod::Browser
             ]
         );
-    }
-
-    #[test]
-    fn test_auto_brave_without_key() {
-        let methods =
-            resolve_access(SearchEngineType::BraveSearch, SearchMode::Auto, false).unwrap();
+        let without = resolve_access(SearchEngineType::BraveSearch, false, true).unwrap();
         assert_eq!(
-            methods,
+            without,
             vec![AccessMethod::PlainHttp, AccessMethod::Browser]
         );
     }
 
     #[test]
-    fn test_auto_bing() {
-        let methods = resolve_access(SearchEngineType::Bing, SearchMode::Auto, false).unwrap();
-        assert_eq!(
-            methods,
-            vec![AccessMethod::PlainHttp, AccessMethod::Browser]
-        );
-    }
-
-    #[test]
-    fn test_webquery_ignores_key() {
-        let methods =
-            resolve_access(SearchEngineType::BraveSearch, SearchMode::WebQuery, true).unwrap();
-        assert_eq!(
-            methods,
-            vec![AccessMethod::PlainHttp, AccessMethod::Browser]
-        );
-    }
-
-    #[test]
-    fn test_apiquery_brave_requires_key() {
-        let err = resolve_access(SearchEngineType::BraveSearch, SearchMode::ApiQuery, false);
-        assert!(err.is_err());
-    }
-
-    #[test]
-    fn test_apiquery_bing_unsupported() {
-        let err = resolve_access(SearchEngineType::Bing, SearchMode::ApiQuery, true);
-        assert!(err.is_err());
+    fn test_bing_browser_toggle() {
+        let on = resolve_access(SearchEngineType::Bing, false, true).unwrap();
+        assert_eq!(on, vec![AccessMethod::PlainHttp, AccessMethod::Browser]);
+        let off = resolve_access(SearchEngineType::Bing, false, false).unwrap();
+        assert_eq!(off, vec![AccessMethod::PlainHttp]);
     }
 
     #[test]
     fn test_google_serper_requires_key() {
-        let err = resolve_access(SearchEngineType::GoogleSerper, SearchMode::Auto, false);
+        let err = resolve_access(SearchEngineType::GoogleSerper, false, true);
         assert!(err.is_err());
 
-        let methods =
-            resolve_access(SearchEngineType::GoogleSerper, SearchMode::Auto, true).unwrap();
+        let methods = resolve_access(SearchEngineType::GoogleSerper, true, true).unwrap();
         assert_eq!(methods, vec![AccessMethod::Api]);
     }
 
     #[test]
     fn test_tavily_requires_key() {
-        let err = resolve_access(SearchEngineType::Tavily, SearchMode::Auto, false);
+        let err = resolve_access(SearchEngineType::Tavily, false, true);
         assert!(err.is_err());
         assert!(err.unwrap_err().to_string().contains("TAVILY_API_KEY"));
 
-        let methods = resolve_access(SearchEngineType::Tavily, SearchMode::Auto, true).unwrap();
-        assert_eq!(methods, vec![AccessMethod::Api]);
-    }
-
-    #[test]
-    fn test_googleai_requires_key() {
-        let err = resolve_access(SearchEngineType::GoogleAi, SearchMode::WebQuery, true);
-        assert!(err.is_err());
-
-        let methods =
-            resolve_access(SearchEngineType::GoogleAi, SearchMode::ApiQuery, true).unwrap();
+        let methods = resolve_access(SearchEngineType::Tavily, true, false).unwrap();
         assert_eq!(methods, vec![AccessMethod::Api]);
     }
 
     #[test]
     fn test_searxng_requires_host() {
-        let err = resolve_access(SearchEngineType::SearxNG, SearchMode::Auto, false);
+        let err = resolve_access(SearchEngineType::SearxNG, false, true);
         assert!(err.is_err());
         assert!(err.unwrap_err().to_string().contains("SEARX_HOST"));
-    }
-
-    #[test]
-    fn test_google_serper_webquery_rejected() {
-        let err = resolve_access(SearchEngineType::GoogleSerper, SearchMode::WebQuery, true);
-        assert!(err.is_err());
     }
 
     #[test]

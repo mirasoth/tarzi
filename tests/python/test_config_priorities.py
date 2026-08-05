@@ -52,12 +52,12 @@ limit = 15
         """Test that Config.load() picks up TARZI_* environment variables."""
         original = {
             "TARZI_SEARCH_ENGINE": os.environ.get("TARZI_SEARCH_ENGINE"),
-            "TARZI_SEARCH_MODE": os.environ.get("TARZI_SEARCH_MODE"),
+            "TARZI_SEARCH_BROWSER": os.environ.get("TARZI_SEARCH_BROWSER"),
             "TARZI_SEARCH_LIMIT": os.environ.get("TARZI_SEARCH_LIMIT"),
         }
         try:
-            os.environ["TARZI_SEARCH_ENGINE"] = "brave"
-            os.environ["TARZI_SEARCH_MODE"] = "webquery"
+            os.environ["TARZI_SEARCH_ENGINE"] = "brave,duckduckgo"
+            os.environ["TARZI_SEARCH_BROWSER"] = "false"
             os.environ["TARZI_SEARCH_LIMIT"] = "8"
 
             config = tarzi.Config.load()

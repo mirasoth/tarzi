@@ -7,7 +7,7 @@ use tarzi::{
 /// Brave search with access cascade (API → plain HTTP → browser).
 ///
 /// Prefer: export BRAVE_API_KEY=...
-/// Or set config.search.api_key / mode = "apiquery" to force API only.
+/// Or set config.search.api_key. Set search.browser = false to skip browser fallback.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
@@ -15,8 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::load().unwrap_or_default();
     config.fetcher.mode = "browser_headless".to_string();
     config.search.engine = "brave".to_string();
-    // auto: try Brave API when BRAVE_API_KEY is set, else web cascade
-    config.search.mode = "auto".to_string();
+    config.search.browser = true;
     config.fetcher.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".to_string();
 
     let engine_type = SearchEngineType::from_str(&config.search.engine).unwrap();
@@ -28,9 +27,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match search_engine.search(query, config.search.limit).await {
         Ok(results) => {
             println!(
-                "\nFound {} results (mode={:?}):",
+                "\nFound {} results (browser={}):",
                 results.len(),
-                search_engine.search_mode()
+                search_engine.browser_enabled()
             );
             for (i, result) in results.iter().enumerate() {
                 println!("{}. {}", i + 1, result.title);

@@ -1,8 +1,8 @@
 use crate::constants::{
-    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_LIMIT, DEFAULT_SEARCH_MODE, DEFAULT_TIMEOUT_SECS,
+    DEFAULT_QUERY_PATTERN, DEFAULT_SEARCH_BROWSER, DEFAULT_SEARCH_LIMIT, DEFAULT_TIMEOUT_SECS,
     ENV_TARZI_FETCHER_FORMAT, ENV_TARZI_FETCHER_MODE, ENV_TARZI_FETCHER_TIMEOUT,
-    ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY, ENV_TARZI_QUERY_PATTERN, ENV_TARZI_SEARCH_ENGINE,
-    ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_SEARCH_MODE, ENV_TARZI_TIMEOUT, ENV_TARZI_USER_AGENT,
+    ENV_TARZI_LOG_LEVEL, ENV_TARZI_PROXY, ENV_TARZI_QUERY_PATTERN, ENV_TARZI_SEARCH_BROWSER,
+    ENV_TARZI_SEARCH_ENGINE, ENV_TARZI_SEARCH_LIMIT, ENV_TARZI_TIMEOUT, ENV_TARZI_USER_AGENT,
     ENV_TARZI_WEB_DRIVER, ENV_TARZI_WEB_DRIVER_URL, FETCHER_MODE_BROWSER_HEADLESS, FORMAT_MARKDOWN,
     LOG_LEVEL_INFO, SEARCH_ENGINE_BING,
 };
@@ -45,15 +45,16 @@ pub struct FetcherConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchConfig {
+    /// Single engine or comma-separated ordered failover list (e.g. `brave,duckduckgo,bing`).
     #[serde(default = "default_search_engine")]
     pub engine: String,
     #[serde(default = "default_query_pattern")]
     pub query_pattern: String,
     #[serde(default = "default_result_limit")]
     pub limit: usize,
-    /// Search access mode: auto | apiquery | webquery
-    #[serde(default = "default_search_mode")]
-    pub mode: String,
+    /// Whether browser automation may be used as a search access fallback (default true).
+    #[serde(default = "default_search_browser")]
+    pub browser: bool,
     /// Optional API key for the configured engine (programmatic only).
     /// Prefer engine-specific env vars: `BRAVE_API_KEY`, `SERPER_API_KEY`,
     /// `TAVILY_API_KEY`, `GEMINI_API_KEY`.
@@ -69,6 +70,7 @@ pub struct CliConfigParams {
     pub fetcher_format: Option<String>,
     pub search_limit: Option<usize>,
     pub search_engine: Option<String>,
+    pub search_browser: Option<bool>,
 }
 
 impl CliConfigParams {
@@ -77,6 +79,7 @@ impl CliConfigParams {
             fetcher_format: None,
             search_limit: None,
             search_engine: None,
+            search_browser: None,
         }
     }
 }
@@ -165,10 +168,8 @@ impl Config {
         if let Some(v) = parse_env_usize(ENV_TARZI_SEARCH_LIMIT)? {
             self.search.limit = v;
         }
-        if let Ok(v) = std::env::var(ENV_TARZI_SEARCH_MODE)
-            && !v.is_empty()
-        {
-            self.search.mode = v;
+        if let Some(v) = parse_env_bool(ENV_TARZI_SEARCH_BROWSER)? {
+            self.search.browser = v;
         }
 
         Ok(())
@@ -214,8 +215,8 @@ impl Config {
         if other.search.query_pattern != default_query_pattern() {
             self.search.query_pattern = other.search.query_pattern.clone();
         }
-        if other.search.mode != default_search_mode() {
-            self.search.mode = other.search.mode.clone();
+        if other.search.browser != default_search_browser() {
+            self.search.browser = other.search.browser;
         }
         if other.search.api_key.is_some() {
             self.search.api_key = other.search.api_key.clone();
@@ -235,6 +236,9 @@ impl Config {
         }
         if let Some(engine) = &cli_params.search_engine {
             self.search.engine = engine.clone();
+        }
+        if let Some(browser) = cli_params.search_browser {
+            self.search.browser = browser;
         }
     }
 }
@@ -259,6 +263,20 @@ fn parse_env_usize(name: &str) -> Result<Option<usize>> {
                 "Invalid {name} value '{v}': expected unsigned integer"
             ))
         }),
+        Err(_) => Ok(None),
+    }
+}
+
+fn parse_env_bool(name: &str) -> Result<Option<bool>> {
+    match std::env::var(name) {
+        Ok(v) if v.is_empty() => Ok(None),
+        Ok(v) => match v.to_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Ok(Some(true)),
+            "0" | "false" | "no" | "off" => Ok(Some(false)),
+            _ => Err(TarziError::Config(format!(
+                "Invalid {name} value '{v}': expected true/false"
+            ))),
+        },
         Err(_) => Ok(None),
     }
 }
@@ -293,7 +311,7 @@ impl Default for SearchConfig {
             engine: default_search_engine(),
             query_pattern: default_query_pattern(),
             limit: default_result_limit(),
-            mode: default_search_mode(),
+            browser: default_search_browser(),
             api_key: None,
             base_url: None,
         }
@@ -343,8 +361,8 @@ fn default_result_limit() -> usize {
     DEFAULT_SEARCH_LIMIT
 }
 
-fn default_search_mode() -> String {
-    DEFAULT_SEARCH_MODE.to_string()
+fn default_search_browser() -> bool {
+    DEFAULT_SEARCH_BROWSER
 }
 
 fn default_web_driver() -> String {
@@ -398,35 +416,35 @@ mod tests {
         assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
         assert_eq!(config.search.query_pattern, DEFAULT_QUERY_PATTERN);
         assert_eq!(config.search.limit, DEFAULT_SEARCH_LIMIT);
-        assert_eq!(config.search.mode, DEFAULT_SEARCH_MODE);
+        assert!(config.search.browser);
         assert!(config.search.api_key.is_none());
     }
 
     #[test]
-    fn test_search_mode_and_api_key_from_toml() {
+    fn test_search_browser_and_api_key_from_toml() {
         let toml_str = r#"
 [search]
-engine = "brave"
-mode = "apiquery"
+engine = "brave,duckduckgo"
+browser = false
 api_key = "test-brave-key"
 limit = 7
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.search.engine, SEARCH_ENGINE_BRAVE);
-        assert_eq!(config.search.mode, SEARCH_MODE_APIQUERY);
+        assert_eq!(config.search.engine, "brave,duckduckgo");
+        assert!(!config.search.browser);
         assert_eq!(config.search.api_key.as_deref(), Some("test-brave-key"));
         assert_eq!(config.search.limit, 7);
     }
 
     #[test]
-    fn test_search_mode_defaults_to_auto() {
+    fn test_search_browser_defaults_to_true() {
         let toml_str = r#"
 [search]
 engine = "google_serper"
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.search.engine, SEARCH_ENGINE_GOOGLE_SERPER);
-        assert_eq!(config.search.mode, DEFAULT_SEARCH_MODE);
+        assert!(config.search.browser);
     }
 
     #[test]
@@ -516,7 +534,7 @@ web_driver_url = "http://localhost:9999"
                 ENV_TARZI_SEARCH_ENGINE,
                 ENV_TARZI_QUERY_PATTERN,
                 ENV_TARZI_SEARCH_LIMIT,
-                ENV_TARZI_SEARCH_MODE,
+                ENV_TARZI_SEARCH_BROWSER,
             ];
             let originals: Vec<_> = keys.iter().map(|&k| (k, std::env::var(k).ok())).collect();
             unsafe {
@@ -535,10 +553,10 @@ web_driver_url = "http://localhost:9999"
                 std::env::set_var(ENV_TARZI_PROXY, "http://env-proxy:8080");
                 std::env::set_var(ENV_TARZI_WEB_DRIVER, "geckodriver");
                 std::env::set_var(ENV_TARZI_WEB_DRIVER_URL, "http://localhost:4444");
-                std::env::set_var(ENV_TARZI_SEARCH_ENGINE, "brave");
+                std::env::set_var(ENV_TARZI_SEARCH_ENGINE, "brave,duckduckgo");
                 std::env::set_var(ENV_TARZI_QUERY_PATTERN, "https://example.com?q={query}");
                 std::env::set_var(ENV_TARZI_SEARCH_LIMIT, "12");
-                std::env::set_var(ENV_TARZI_SEARCH_MODE, "apiquery");
+                std::env::set_var(ENV_TARZI_SEARCH_BROWSER, "false");
             }
 
             let config = Config::load().unwrap();
@@ -558,10 +576,10 @@ web_driver_url = "http://localhost:9999"
                 config.fetcher.web_driver_url,
                 Some("http://localhost:4444".to_string())
             );
-            assert_eq!(config.search.engine, "brave");
+            assert_eq!(config.search.engine, "brave,duckduckgo");
             assert_eq!(config.search.query_pattern, "https://example.com?q={query}");
             assert_eq!(config.search.limit, 12);
-            assert_eq!(config.search.mode, "apiquery");
+            assert!(!config.search.browser);
             assert!(config.search.api_key.is_none());
 
             unsafe {
@@ -613,7 +631,7 @@ web_driver_url = "http://localhost:9999"
                 ENV_TARZI_SEARCH_ENGINE,
                 ENV_TARZI_QUERY_PATTERN,
                 ENV_TARZI_SEARCH_LIMIT,
-                ENV_TARZI_SEARCH_MODE,
+                ENV_TARZI_SEARCH_BROWSER,
             ];
             let originals: Vec<_> = keys.iter().map(|&k| (k, std::env::var(k).ok())).collect();
             unsafe {
@@ -624,7 +642,7 @@ web_driver_url = "http://localhost:9999"
 
             let config = Config::load().unwrap();
             assert_eq!(config.search.engine, SEARCH_ENGINE_BING);
-            assert_eq!(config.search.mode, DEFAULT_SEARCH_MODE);
+            assert!(config.search.browser);
             assert!(config.fetcher.proxy.is_none());
             assert!(config.search.api_key.is_none());
 
@@ -826,7 +844,7 @@ web_driver_url = "http://localhost:9999"
                 engine: SEARCH_ENGINE_GOOGLE.to_string(),
                 query_pattern: "custom pattern".to_string(),
                 limit: DEFAULT_SEARCH_LIMIT,
-                mode: DEFAULT_SEARCH_MODE.to_string(),
+                browser: false,
                 api_key: None,
                 base_url: None,
             },
@@ -852,5 +870,6 @@ web_driver_url = "http://localhost:9999"
         assert_eq!(base_config.search.engine, SEARCH_ENGINE_GOOGLE);
         assert_eq!(base_config.search.query_pattern, "custom pattern");
         assert_eq!(base_config.search.limit, DEFAULT_SEARCH_LIMIT);
+        assert!(!base_config.search.browser);
     }
 }

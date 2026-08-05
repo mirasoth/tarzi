@@ -4,8 +4,7 @@ use crate::constants::{
     GOOGLEAI_API_URL_PATTERN, SEARCH_ENGINE_BAIDU, SEARCH_ENGINE_BING, SEARCH_ENGINE_BRAVE,
     SEARCH_ENGINE_DUCKDUCKGO, SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_GOOGLE_AI_ALIAS,
     SEARCH_ENGINE_GOOGLE_SERPER, SEARCH_ENGINE_GOOGLEAI, SEARCH_ENGINE_SEARXNG,
-    SEARCH_ENGINE_SERPER_ALIAS, SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_ENGINE_TAVILY,
-    SEARCH_MODE_APIQUERY, SEARCH_MODE_AUTO, SEARCH_MODE_WEBQUERY, SERPER_API_URL,
+    SEARCH_ENGINE_SERPER_ALIAS, SEARCH_ENGINE_SOUGOU_WEIXIN, SEARCH_ENGINE_TAVILY, SERPER_API_URL,
     SOUGOU_WEIXIN_QUERY_PATTERN, TAVILY_API_URL,
 };
 use crate::error::TarziError;
@@ -149,30 +148,33 @@ impl SearchEngineType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SearchMode {
-    Auto,
-    ApiQuery,
-    WebQuery,
-}
-
-impl FromStr for SearchMode {
-    type Err = TarziError;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            SEARCH_MODE_AUTO => Ok(SearchMode::Auto),
-            SEARCH_MODE_APIQUERY => Ok(SearchMode::ApiQuery),
-            SEARCH_MODE_WEBQUERY => Ok(SearchMode::WebQuery),
-            _ => Err(TarziError::Config(format!("Invalid search mode: {s}"))),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AccessMethod {
     Api,
     PlainHttp,
     Browser,
+}
+
+/// Parse an ordered engine list from a comma-separated string.
+///
+/// Empty tokens are ignored. Duplicates are removed while preserving first-seen order.
+/// An empty / whitespace-only string yields `[Bing]` (default engine).
+pub fn parse_engine_list(s: &str) -> Result<Vec<SearchEngineType>, TarziError> {
+    let mut engines = Vec::new();
+    for part in s.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let engine = SearchEngineType::from_str(part)?;
+        if !engines.contains(&engine) {
+            engines.push(engine);
+        }
+    }
+    if engines.is_empty() {
+        Ok(vec![SearchEngineType::Bing])
+    } else {
+        Ok(engines)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -249,17 +251,29 @@ mod tests {
     }
 
     #[test]
-    fn test_search_mode_parsing() {
-        assert_eq!(SearchMode::from_str("auto").unwrap(), SearchMode::Auto);
+    fn test_parse_engine_list() {
         assert_eq!(
-            SearchMode::from_str("apiquery").unwrap(),
-            SearchMode::ApiQuery
+            parse_engine_list("brave,duckduckgo,bing").unwrap(),
+            vec![
+                SearchEngineType::BraveSearch,
+                SearchEngineType::DuckDuckGo,
+                SearchEngineType::Bing,
+            ]
         );
         assert_eq!(
-            SearchMode::from_str("webquery").unwrap(),
-            SearchMode::WebQuery
+            parse_engine_list("brave, brave, bing").unwrap(),
+            vec![SearchEngineType::BraveSearch, SearchEngineType::Bing]
         );
-        assert!(SearchMode::from_str("invalid").is_err());
+        assert_eq!(parse_engine_list("").unwrap(), vec![SearchEngineType::Bing]);
+        assert_eq!(
+            parse_engine_list("  ,  ").unwrap(),
+            vec![SearchEngineType::Bing]
+        );
+        assert!(parse_engine_list("brave,not_an_engine").is_err());
+        assert_eq!(
+            parse_engine_list("serper").unwrap(),
+            vec![SearchEngineType::GoogleSerper]
+        );
     }
 
     #[test]

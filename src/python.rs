@@ -320,7 +320,7 @@ impl PyWebFetcher {
     }
 }
 
-/// Search engine with multiple providers and modes
+/// Search engine with multi-engine failover and access cascade
 #[pyclass(name = "SearchEngine")]
 pub struct PySearchEngine {
     inner: SearchEngine,
@@ -617,6 +617,21 @@ impl PyConfig {
             ))
         })?;
         Ok(Self { inner: config })
+    }
+
+    /// Override search engine (single or comma-separated failover list)
+    fn set_search_engine(&mut self, engine: String) {
+        self.inner.search.engine = engine;
+    }
+
+    /// Override whether browser may be used as a search access fallback
+    fn set_search_browser(&mut self, browser: bool) {
+        self.inner.search.browser = browser;
+    }
+
+    /// Override search result limit
+    fn set_search_limit(&mut self, limit: usize) {
+        self.inner.search.limit = limit;
     }
 
     fn __repr__(&self) -> String {

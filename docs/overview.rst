@@ -80,7 +80,7 @@ The Search module provides comprehensive search engine integration:
 
 **Configuration**
    Environment variables (``TARZI_*``); file config (``tarzi.toml``) was removed.
-   ``TARZI_SEARCH_MODE`` = ``auto`` | ``apiquery`` | ``webquery``;
+   ``TARZI_SEARCH_BROWSER`` = ``true`` | ``false`` (default true); multi-engine via comma-separated ``TARZI_SEARCH_ENGINE``;
    API keys via ``BRAVE_API_KEY`` / ``SERPER_API_KEY`` only.
 
 Key features:

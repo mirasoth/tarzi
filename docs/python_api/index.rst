@@ -34,19 +34,19 @@ Basic Usage
    # Fetch web page
    content = tarzi.fetch_url("https://example.com", mode="plain_request")
 
-   # Search web (access mode comes from config; default auto cascade)
+   # Search web (access cascade from config)
    results = tarzi.search_web("python programming", 10)
 
-Search Engines and Modes
-------------------------
+Search Engines and Access Cascade
+---------------------------------
 
-``SearchEngine`` reads ``search.engine`` and ``search.mode`` from :class:`tarzi.Config`.
+``SearchEngine`` reads ``search.engine`` and ``search.browser`` from :class:`tarzi.Config`.
 
 Supported engines: ``bing``, ``google``, ``google_serper`` (alias ``serper``), ``brave``,
 ``duckduckgo``, ``baidu``, ``sogou_weixin``, ``tavily``, ``googleai`` (alias ``google_ai``),
 ``searxng``.
 
-Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`.
+Access cascade: API → plain HTTP → browser. See :doc:`/configuration`.
 
 .. code-block:: python
 
@@ -57,19 +57,19 @@ Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`
        """
    [search]
    engine = "brave"
-   mode = "auto"
+   browser = true
    limit = 5
    """
    )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("rust async", 5)
 
-   # Force Serper API
+   # Serper API
    config = tarzi.Config.from_str(
        """
    [search]
    engine = "google_serper"
-   mode = "apiquery"
+   browser = false
    """
    )
    engine = tarzi.SearchEngine.from_config(config)
@@ -80,18 +80,18 @@ Modes: ``auto`` (default), ``apiquery``, ``webquery``. See :doc:`/configuration`
        """
    [search]
    engine = "tavily"
-   mode = "apiquery"
+   browser = false
    """
    )
    engine = tarzi.SearchEngine.from_config(config)
    results = engine.search("latest AI news", 5)
 
-   # Web-only (never call APIs)
+   # DuckDuckGo web cascade
    config = tarzi.Config.from_str(
        """
    [search]
    engine = "duckduckgo"
-   mode = "webquery"
+   browser = true
    """
    )
    engine = tarzi.SearchEngine.from_config(config)
@@ -101,4 +101,4 @@ Environment keys ``BRAVE_API_KEY``, ``SERPER_API_KEY``, ``TAVILY_API_KEY``, and
 ``GEMINI_API_KEY`` override ``search.api_key``. ``SEARX_HOST`` overrides
 ``search.base_url`` for ``searxng``.
 
-More examples: :doc:`/examples/api_search` and ``examples/search_modes.py``.
+More examples: :doc:`/examples/api_search` and ``examples/search_cascade.py``.
